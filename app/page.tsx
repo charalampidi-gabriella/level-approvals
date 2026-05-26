@@ -24,6 +24,7 @@ export default function Page() {
   return (
     <div className="wrap">
       <header>
+        <img className="logo" src="/media/rippner-logo.png" alt="Rippner Tennis" />
         <h1>Level Log</h1>
         <p>Log what you saw or decided. Everyone sees the history before they act.</p>
       </header>
