@@ -15,7 +15,6 @@ import {
   getAllEntries,
   getPlayerNames,
   type Evaluation,
-  type PlayerSummary,
 } from "./actions";
 
 type Tab = "log" | "lookup";
@@ -377,8 +376,6 @@ function LogForm() {
 
 function Lookup() {
   const [name, setName] = useState("");
-  const [data, setData] = useState<PlayerSummary | null>(null);
-  const [busy, setBusy] = useState(false);
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
 
@@ -387,17 +384,13 @@ function Lookup() {
     getPlayerNames().then(setNames);
   }, []);
 
-  async function search(q?: string) {
-    const query = (q ?? name).trim();
-    if (!query) return;
-    if (q) setName(q);
-    setBusy(true);
-    try {
-      setData(await getPlayerSummary(query));
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Filter the already-loaded feed in place — no server round-trip.
+  const q = name.trim().toLowerCase();
+  const filtered = all
+    ? q
+      ? all.filter((e) => e.player.toLowerCase().includes(q))
+      : all
+    : null;
 
   return (
     <div className="card">
@@ -405,73 +398,22 @@ function Lookup() {
       <PlayerPicker
         value={name}
         names={names}
-        placeholder="Search a player"
+        placeholder="Filter by player"
         onChange={setName}
-        onSelect={(v) => search(v)}
-        onEnter={(v) => search(v)}
       />
-      <button className="primary" onClick={() => search()} disabled={busy}>
-        {busy ? "Searching…" : "Search"}
-      </button>
 
-      {data && data.evaluations.length === 0 && data.matches.length === 0 && (
-        <div className="msg err">No entries on record for “{data.player}”.</div>
-      )}
-
-      {data && data.matches.length > 0 && (
-        <div className="matches">
-          <p className="hint">No exact match. Did you mean:</p>
-          {data.matches.map((m) => (
-            <a key={m} onClick={() => search(m)}>
-              {m}
-            </a>
-          ))}
-        </div>
-      )}
-
-      {data && data.standings.length > 0 && (
-        <>
-          <h3 style={{ marginTop: "1.25rem" }}>{data.player} — approval status</h3>
-          {data.standings.map((s) => (
-            <div className="standing" key={s.level}>
-              <span className="lv">{s.level}</span>
-              <span style={{ textAlign: "right" }}>
-                <span
-                  className={`pill ${
-                    s.status === "Approved"
-                      ? "approved"
-                      : s.status === "Denied"
-                      ? "notready"
-                      : "discussion"
-                  }`}
-                >
-                  {s.status}
-                </span>
-                <div className="who">{s.coaches.join(" · ")}</div>
-              </span>
-            </div>
-          ))}
-        </>
-      )}
-
-      {data && data.evaluations.length > 0 && (
-        <>
-          <h3 style={{ marginTop: "1.25rem" }}>Full history</h3>
-          {data.evaluations.map((e) => (
-            <EntryLine key={e.id} e={e} />
-          ))}
-        </>
-      )}
-
-      {!data && all && (
+      {filtered && (
         <>
           <h3 style={{ marginTop: "1.25rem" }}>
-            All entries {all.length > 0 && `(${all.length})`}
+            {q ? `Results for “${name.trim()}”` : "All entries"}{" "}
+            {filtered.length > 0 && `(${filtered.length})`}
           </h3>
-          {all.length === 0 ? (
-            <p className="hint">No entries logged yet.</p>
+          {filtered.length === 0 ? (
+            <p className="hint">
+              {q ? "No entries match that name." : "No entries logged yet."}
+            </p>
           ) : (
-            all.map((e) => <EntryLine key={e.id} e={e} showPlayer />)
+            filtered.map((e) => <EntryLine key={e.id} e={e} showPlayer />)
           )}
         </>
       )}
