@@ -182,6 +182,15 @@ export async function getAllEntries(): Promise<Evaluation[]> {
   return res.rows.map((r) => toEval(r as Row));
 }
 
+/** Distinct player names already on record — powers the type-ahead suggestions. */
+export async function getPlayerNames(): Promise<string[]> {
+  await ensureSchema();
+  const res = await db().execute(
+    `SELECT DISTINCT player FROM evaluations ORDER BY player COLLATE NOCASE`
+  );
+  return res.rows.map((r) => String((r as Row).player));
+}
+
 export async function getConfig() {
   return { coaches: COACHES, outcomes: OUTCOMES };
 }

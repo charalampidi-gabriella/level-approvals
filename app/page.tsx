@@ -13,6 +13,7 @@ import {
   submitEntry,
   getPlayerSummary,
   getAllEntries,
+  getPlayerNames,
   type Evaluation,
   type PlayerSummary,
 } from "./actions";
@@ -119,6 +120,75 @@ function CoachPicker({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
+// Free-text name input with type-ahead suggestions from existing players.
+// Unlike CoachPicker, any value is allowed (new players won't be on record yet).
+function PlayerPicker({
+  value,
+  names,
+  placeholder,
+  onChange,
+  onSelect,
+  onEnter,
+  onBlur,
+}: {
+  value: string;
+  names: string[];
+  placeholder?: string;
+  onChange: (v: string) => void;
+  onSelect?: (v: string) => void;
+  onEnter?: (v: string) => void;
+  onBlur?: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const q = value.trim().toLowerCase();
+  const matches = q
+    ? names.filter((n) => n.toLowerCase().includes(q)).slice(0, 8)
+    : [];
+
+  function pick(name: string) {
+    onChange(name);
+    setOpen(false);
+    onSelect?.(name);
+  }
+
+  return (
+    <div className="combo">
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() =>
+          setTimeout(() => {
+            setOpen(false);
+            onBlur?.(value);
+          }, 150)
+        }
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            setOpen(false);
+            onEnter?.(value);
+          }
+        }}
+      />
+      {open && matches.length > 0 && (
+        <div className="combo-list">
+          {matches.map((n) => (
+            <div key={n} className="combo-item" onMouseDown={() => pick(n)}>
+              {n}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LogForm() {
   const [coach, setCoach] = useState("");
   const [player, setPlayer] = useState("");
@@ -131,9 +201,14 @@ function LogForm() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [history, setHistory] = useState<Evaluation[] | null>(null);
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [names, setNames] = useState<string[]>([]);
 
-  async function loadHistory() {
-    const name = player.trim();
+  useEffect(() => {
+    getPlayerNames().then(setNames);
+  }, []);
+
+  async function loadHistory(raw: string) {
+    const name = raw.trim();
     if (!name) {
       setHistory(null);
       return;
@@ -204,14 +279,15 @@ function LogForm() {
       <CoachPicker value={coach} onChange={setCoach} />
 
       <label>Player</label>
-      <input
-        type="text"
+      <PlayerPicker
         value={player}
-        placeholder="Full name"
-        onChange={(e) => {
-          setPlayer(e.target.value);
+        names={names}
+        placeholder="Full name (exactly as it appears on roster)"
+        onChange={(v) => {
+          setPlayer(v);
           setHistory(null);
         }}
+        onSelect={loadHistory}
         onBlur={loadHistory}
       />
 
@@ -304,9 +380,11 @@ function Lookup() {
   const [data, setData] = useState<PlayerSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [all, setAll] = useState<Evaluation[] | null>(null);
+  const [names, setNames] = useState<string[]>([]);
 
   useEffect(() => {
     getAllEntries().then(setAll);
+    getPlayerNames().then(setNames);
   }, []);
 
   async function search(q?: string) {
@@ -324,14 +402,13 @@ function Lookup() {
   return (
     <div className="card">
       <label>Player name</label>
-      <input
-        type="text"
+      <PlayerPicker
         value={name}
+        names={names}
         placeholder="Search a player"
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") search();
-        }}
+        onChange={setName}
+        onSelect={(v) => search(v)}
+        onEnter={(v) => search(v)}
       />
       <button className="primary" onClick={() => search()} disabled={busy}>
         {busy ? "Searching…" : "Search"}
