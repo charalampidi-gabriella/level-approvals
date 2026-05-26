@@ -129,6 +129,7 @@ function LogForm() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [history, setHistory] = useState<Evaluation[] | null>(null);
+  const [submitted, setSubmitted] = useState<string | null>(null);
 
   async function loadHistory() {
     const name = player.trim();
@@ -167,7 +168,7 @@ function LogForm() {
     try {
       const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel });
       if (res.ok) {
-        setMsg({ kind: "ok", text: `Logged: ${player.trim()} — ${outcome}.` });
+        setSubmitted(`${player.trim()} — ${outcome}`);
         reset();
       } else {
         setMsg({ kind: "err", text: res.error });
@@ -175,6 +176,25 @@ function LogForm() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (submitted) {
+    return (
+      <div className="card submitted-card">
+        <div className="submitted-check">✓</div>
+        <h2>Submitted</h2>
+        <p className="submitted-detail">{submitted}</p>
+        <button
+          className="primary"
+          onClick={() => {
+            setSubmitted(null);
+            setMsg(null);
+          }}
+        >
+          Log another entry
+        </button>
+      </div>
+    );
   }
 
   return (
