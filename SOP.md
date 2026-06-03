@@ -23,14 +23,30 @@ player** tab and read:
 - **Full history** — who logged what, and critically, **whether they've been
   flagged for a wrong-class placement before** (first vs. repeat occurrence).
 
-If another coach already approved or denied this player and you disagree, **talk
-to that coach** — don't silently contradict the record.
+Management posts a heads-up in the **coaches' chat** when a player is coming in
+specifically to be evaluated (e.g., a 4.0–4.5 player attending to be assessed
+for 4.5, or someone who emailed asking to be approved for 4.5). Check the chat
+before class so you know who you're watching for.
+
+If another coach already approved or denied this player and you disagree,
+**raise it in the coaches' chat** — don't override them in person and don't
+silently contradict the record. Disagreements are reconciled in writing so
+everyone sees the same outcome.
 
 ### 2. Log your decision (Log entry tab)
 - Pick your name, the player, and the entry type.
+- **Approving for 4.0–4.5 also requires a 4.5 verdict** (Approved for 4.5 or
+  Not ready for 4.5). The app enforces this. The 4.5 verdict is how
+  management decides whether to email the player "you can join 4.5 now" vs.
+  "stay in 4.0–4.5 for now."
 - **Feedback is required** for denials and wrong-class entries.
 - **"Showed up at wrong class"** also requires the **level they attended** and the
   **level they should be in**.
+- **Tell the player your decision in person.**
+  - **Approval:** say what level they're approved for and how to register.
+  - **Denial:** share the feedback you logged — be concrete (strokes,
+    movement, match play) so they know what to work on and what's next.
+  - **Wrong class** has its own script — see §3.
 
 ### 3. Wrong class — level-gap handling
 **If the level gap is ≥ 1.0 and continuing would harm the group experience:**

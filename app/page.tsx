@@ -188,10 +188,13 @@ function PlayerPicker({
   );
 }
 
+type NextLevelOutcome = "" | "Approved for 4.5" | "Denied for 4.5";
+
 function LogForm() {
   const [coach, setCoach] = useState("");
   const [player, setPlayer] = useState("");
   const [outcome, setOutcome] = useState<Outcome | "">("");
+  const [nextLevelOutcome, setNextLevelOutcome] = useState<NextLevelOutcome>("");
   const [note, setNote] = useState("");
   const [attendedLevel, setAttendedLevel] = useState("");
   const [correctLevel, setCorrectLevel] = useState("");
@@ -219,11 +222,16 @@ function LogForm() {
   function reset() {
     setPlayer("");
     setOutcome("");
+    setNextLevelOutcome("");
     setNote("");
     setAttendedLevel("");
     setCorrectLevel("");
     setHistory(null);
   }
+
+  const feedbackIsRequired =
+    (!!outcome && feedbackRequired(outcome)) ||
+    (!!nextLevelOutcome && feedbackRequired(nextLevelOutcome));
 
   async function onSubmit() {
     setMsg(null);
@@ -231,7 +239,14 @@ function LogForm() {
       setMsg({ kind: "err", text: "Coach, player, and entry type are all required." });
       return;
     }
-    if (feedbackRequired(outcome) && !note.trim()) {
+    if (outcome === "Approved for 4.0–4.5" && !nextLevelOutcome) {
+      setMsg({
+        kind: "err",
+        text: "Also pick a 4.5 evaluation — approved or not ready.",
+      });
+      return;
+    }
+    if (feedbackIsRequired && !note.trim()) {
       setMsg({ kind: "err", text: "Feedback is required for denials and wrong-class entries." });
       return;
     }
@@ -242,12 +257,29 @@ function LogForm() {
     setBusy(true);
     try {
       const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel });
-      if (res.ok) {
-        setSubmitted(`${player.trim()} — ${outcome}`);
-        reset();
-      } else {
+      if (!res.ok) {
         setMsg({ kind: "err", text: res.error });
+        return;
       }
+      if (nextLevelOutcome) {
+        const res2 = await submitEntry({
+          player,
+          outcome: nextLevelOutcome,
+          coach,
+          note,
+        });
+        if (!res2.ok) {
+          setMsg({
+            kind: "err",
+            text: `Saved ${outcome}, but 4.5 entry failed: ${res2.error}`,
+          });
+          return;
+        }
+        setSubmitted(`${player.trim()} — ${outcome} + ${nextLevelOutcome}`);
+      } else {
+        setSubmitted(`${player.trim()} — ${outcome}`);
+      }
+      reset();
     } finally {
       setBusy(false);
     }
@@ -296,7 +328,11 @@ function LogForm() {
             {player.trim()} already has {history.length}{" "}
             {history.length === 1 ? "entry" : "entries"}
           </h3>
-          <p className="hint">Review before you log — talk to the coach(es) if you disagree.</p>
+          <p className="hint">
+            Review before you log. <strong>Do not approve for a higher level</strong> than
+            another coach already approved, and <strong>do not override another coach</strong> —
+            raise it in the coaches' chat if you disagree.
+          </p>
           {history.map((e) => (
             <EntryLine key={e.id} e={e} />
           ))}
@@ -316,12 +352,50 @@ function LogForm() {
                 setAttendedLevel("");
                 setCorrectLevel("");
               }
+              if (o !== "Approved for 4.0–4.5") {
+                setNextLevelOutcome("");
+              }
             }}
           >
             {o}
           </button>
         ))}
       </div>
+
+      {outcome === "Approved for 4.0–4.5" && (
+        <div className="next-level">
+          <label>Evaluation for 4.5 (required)</label>
+          <div className="outcome-list">
+            <button
+              type="button"
+              className={`outcome-btn ${
+                nextLevelOutcome === "Approved for 4.5" ? "sel-approved" : ""
+              }`}
+              onClick={() =>
+                setNextLevelOutcome(
+                  nextLevelOutcome === "Approved for 4.5" ? "" : "Approved for 4.5"
+                )
+              }
+            >
+              Approved for 4.5
+            </button>
+            <button
+              type="button"
+              className={`outcome-btn ${
+                nextLevelOutcome === "Denied for 4.5" ? "sel-notready" : ""
+              }`}
+              onClick={() =>
+                setNextLevelOutcome(
+                  nextLevelOutcome === "Denied for 4.5" ? "" : "Denied for 4.5"
+                )
+              }
+            >
+              Not ready for 4.5
+            </button>
+          </div>
+          <p className="hint">Required — when approving for 4.0–4.5, also log what you think about 4.5.</p>
+        </div>
+      )}
 
       {isWrongClass(outcome) && (
         <div className="levels">
@@ -356,9 +430,7 @@ function LogForm() {
         </div>
       )}
 
-      <label>
-        Feedback {outcome && feedbackRequired(outcome) ? "(required)" : "(optional)"}
-      </label>
+      <label>Feedback {feedbackIsRequired ? "(required)" : "(optional)"}</label>
       <textarea
         value={note}
         placeholder="Why — strokes, movement, match play, which class they showed up to…"
