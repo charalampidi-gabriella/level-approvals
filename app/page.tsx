@@ -189,12 +189,14 @@ function PlayerPicker({
 }
 
 type NextLevelOutcome = "" | "Approved for 4.5" | "Denied for 4.5";
+type LowerLevelOutcome = "" | "Approved for 4.0–4.5" | "Denied for 4.0–4.5";
 
 function LogForm() {
   const [coach, setCoach] = useState("");
   const [player, setPlayer] = useState("");
   const [outcome, setOutcome] = useState<Outcome | "">("");
   const [nextLevelOutcome, setNextLevelOutcome] = useState<NextLevelOutcome>("");
+  const [lowerLevelOutcome, setLowerLevelOutcome] = useState<LowerLevelOutcome>("");
   const [note, setNote] = useState("");
   const [attendedLevel, setAttendedLevel] = useState("");
   const [correctLevel, setCorrectLevel] = useState("");
@@ -223,15 +225,20 @@ function LogForm() {
     setPlayer("");
     setOutcome("");
     setNextLevelOutcome("");
+    setLowerLevelOutcome("");
     setNote("");
     setAttendedLevel("");
     setCorrectLevel("");
     setHistory(null);
   }
 
+  // The optional companion entry logged alongside the primary outcome:
+  // a 4.5 read when approving for 4.0–4.5, or a 4.0–4.5 read when denying 4.5.
+  const companionOutcome: string = nextLevelOutcome || lowerLevelOutcome;
+
   const feedbackIsRequired =
     (!!outcome && feedbackRequired(outcome)) ||
-    (!!nextLevelOutcome && feedbackRequired(nextLevelOutcome));
+    (!!companionOutcome && feedbackRequired(companionOutcome));
 
   async function onSubmit() {
     setMsg(null);
@@ -261,21 +268,21 @@ function LogForm() {
         setMsg({ kind: "err", text: res.error });
         return;
       }
-      if (nextLevelOutcome) {
+      if (companionOutcome) {
         const res2 = await submitEntry({
           player,
-          outcome: nextLevelOutcome,
+          outcome: companionOutcome,
           coach,
           note,
         });
         if (!res2.ok) {
           setMsg({
             kind: "err",
-            text: `Saved ${outcome}, but 4.5 entry failed: ${res2.error}`,
+            text: `Saved ${outcome}, but companion entry failed: ${res2.error}`,
           });
           return;
         }
-        setSubmitted(`${player.trim()} — ${outcome} + ${nextLevelOutcome}`);
+        setSubmitted(`${player.trim()} — ${outcome} + ${companionOutcome}`);
       } else {
         setSubmitted(`${player.trim()} — ${outcome}`);
       }
@@ -358,6 +365,9 @@ function LogForm() {
               if (o !== "Approved for 4.0–4.5") {
                 setNextLevelOutcome("");
               }
+              if (o !== "Denied for 4.5") {
+                setLowerLevelOutcome("");
+              }
             }}
           >
             {o}
@@ -397,6 +407,41 @@ function LogForm() {
             </button>
           </div>
           <p className="hint">Required — when approving for 4.0–4.5, also log what you think about 4.5.</p>
+        </div>
+      )}
+
+      {outcome === "Denied for 4.5" && (
+        <div className="next-level">
+          <label>Evaluation for 4.0–4.5 (optional)</label>
+          <div className="outcome-list">
+            <button
+              type="button"
+              className={`outcome-btn ${
+                lowerLevelOutcome === "Approved for 4.0–4.5" ? "sel-approved" : ""
+              }`}
+              onClick={() =>
+                setLowerLevelOutcome(
+                  lowerLevelOutcome === "Approved for 4.0–4.5" ? "" : "Approved for 4.0–4.5"
+                )
+              }
+            >
+              Approved for 4.0–4.5
+            </button>
+            <button
+              type="button"
+              className={`outcome-btn ${
+                lowerLevelOutcome === "Denied for 4.0–4.5" ? "sel-notready" : ""
+              }`}
+              onClick={() =>
+                setLowerLevelOutcome(
+                  lowerLevelOutcome === "Denied for 4.0–4.5" ? "" : "Denied for 4.0–4.5"
+                )
+              }
+            >
+              Not ready for 4.0–4.5
+            </button>
+          </div>
+          <p className="hint">Optional — if they're not ready for 4.5, log whether they're cleared for 4.0–4.5.</p>
         </div>
       )}
 
