@@ -50,6 +50,22 @@ export const PENDING_EVALUATION = [
   "Andrea Martinez Swanson",
   "Matthew Giovanoni",
   "Michael DeLoach",
+  "Stanley Alan Williams",
+  "Tyler Warren",
+  "Ningwei L",
+  "Miguel Borrero",
+  "Sergey",
+  "Laura Mossing",
+  "Abhijith Ravinutala",
+  "James Han",
+  "Ted Schweinfurth",
+  "Zarek Merchant",
+  "Laura Kostelny",
+  "Bryan Porter",
+  "Bowman Hall",
+  "Robert Neigert",
+  "Jack Carolan",
+  "Chris Long",
 ];
 
 // Ordered low -> high. Drives dropdowns and the player summary ordering.
