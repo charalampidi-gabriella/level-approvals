@@ -22,14 +22,6 @@ type Tab = "log" | "lookup";
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("log");
-  // When a coach clicks a pending name in Look-up, jump to the log form with the
-  // name already filled in (no retyping, no typo-split history).
-  const [prefill, setPrefill] = useState("");
-
-  function startLog(name: string) {
-    setPrefill(name);
-    setTab("log");
-  }
 
   return (
     <div className="wrap">
@@ -49,19 +41,12 @@ export default function Page() {
         <button
           role="tab"
           aria-selected={tab === "log"}
-          onClick={() => {
-            setPrefill("");
-            setTab("log");
-          }}
+          onClick={() => setTab("log")}
         >
           Log entry
         </button>
       </div>
-      {tab === "log" ? (
-        <LogForm initialPlayer={prefill} />
-      ) : (
-        <Lookup onEvaluate={startLog} />
-      )}
+      {tab === "log" ? <LogForm /> : <Lookup />}
     </div>
   );
 }
@@ -299,9 +284,9 @@ function PlayerPicker({
 type NextLevelOutcome = "" | "Approved for 4.5" | "Denied for 4.5";
 type LowerLevelOutcome = "" | "Approved for 4.0–4.5" | "Denied for 4.0–4.5";
 
-function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
+function LogForm() {
   const [coach, setCoach] = useState("");
-  const [player, setPlayer] = useState(initialPlayer);
+  const [player, setPlayer] = useState("");
   const [outcome, setOutcome] = useState<Outcome | "">("");
   const [nextLevelOutcome, setNextLevelOutcome] = useState<NextLevelOutcome>("");
   const [lowerLevelOutcome, setLowerLevelOutcome] = useState<LowerLevelOutcome>("");
@@ -314,13 +299,31 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
   const [history, setHistory] = useState<Evaluation[] | null>(null);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [names, setNames] = useState<string[]>([]);
+  const [all, setAll] = useState<Evaluation[] | null>(null);
 
   useEffect(() => {
     getPlayerNames().then(setNames);
-    // Pre-filled from a pending-player click — surface their history immediately.
-    if (initialPlayer) loadHistory(initialPlayer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    getAllEntries().then(setAll);
   }, []);
+
+  // Emailed players not yet evaluated by two different coaches. `votes` is the
+  // distinct-coach count so far (0 or 1 while still pending).
+  const byPlayer = new Map<string, Evaluation[]>();
+  for (const e of all ?? []) {
+    const k = norm(e.player);
+    const list = byPlayer.get(k);
+    if (list) list.push(e);
+    else byPlayer.set(k, [e]);
+  }
+  const pending = PENDING_EVALUATION.map((p) => {
+    const entries = byPlayer.get(norm(p)) ?? [];
+    return { name: p, votes: new Set(entries.map((e) => e.coach)).size };
+  }).filter((p) => p.votes < 2);
+
+  function pickPending(name: string) {
+    setPlayer(name);
+    loadHistory(name);
+  }
 
   async function loadHistory(raw: string) {
     const name = raw.trim();
@@ -398,6 +401,7 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
         setSubmitted(`${player.trim()} — ${outcome}`);
       }
       reset();
+      getAllEntries().then(setAll); // refresh pending vote counts
     } finally {
       setBusy(false);
     }
@@ -424,6 +428,29 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
 
   return (
     <div className="card">
+      {pending.length > 0 && (
+        <div className="pending-box">
+          <h3>Pending evaluation ({pending.length})</h3>
+          <p className="hint">
+            These players asked to be evaluated. Click a name to fill it in below —
+            it drops off once two different coaches have weighed in.
+          </p>
+          <div className="pending-chips">
+            {pending.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                className="chip"
+                onClick={() => pickPending(p.name)}
+              >
+                {p.name}
+                {p.votes > 0 && <span className="chip-votes"> {p.votes}/2</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <label>Coach who made the call</label>
       <CoachPicker value={coach} onChange={setCoach} />
 
@@ -608,7 +635,7 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
   );
 }
 
-function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
+function Lookup() {
   const [name, setName] = useState("");
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
@@ -619,7 +646,7 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
   }, []);
 
   // Group the loaded feed by normalized player name so we can derive who is
-  // still pending and who is in disagreement — all client-side, no extra calls.
+  // in disagreement — all client-side, no extra calls.
   const byPlayer = new Map<string, Evaluation[]>();
   for (const e of all ?? []) {
     const k = norm(e.player);
@@ -627,13 +654,6 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
     if (list) list.push(e);
     else byPlayer.set(k, [e]);
   }
-
-  // Pending = emailed players not yet evaluated by two different coaches.
-  // `votes` is the distinct-coach count so far (0 or 1 while still pending).
-  const pending = PENDING_EVALUATION.map((p) => {
-    const entries = byPlayer.get(norm(p)) ?? [];
-    return { name: p, votes: new Set(entries.map((e) => e.coach)).size };
-  }).filter((p) => p.votes < 2);
 
   // Disagreements = any player (not just the emailed ones) with conflicting calls.
   const disagreements: string[] = [];
@@ -662,29 +682,6 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
 
   return (
     <div className="card">
-      {pending.length > 0 && (
-        <div className="pending-box">
-          <h3>Pending evaluation ({pending.length})</h3>
-          <p className="hint">
-            These players asked to be evaluated. Click a name to log your call —
-            it drops off once two different coaches have weighed in.
-          </p>
-          <div className="pending-chips">
-            {pending.map((p) => (
-              <button
-                key={p.name}
-                type="button"
-                className="chip"
-                onClick={() => onEvaluate(p.name)}
-              >
-                {p.name}
-                {p.votes > 0 && <span className="chip-votes"> {p.votes}/2</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {disagreements.length > 0 && (
         <div className="disagree-box">
           <h3>⚠ Coaches disagree ({disagreements.length})</h3>

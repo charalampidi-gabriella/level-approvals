@@ -54,7 +54,7 @@ export const PENDING_EVALUATION = [
   "Tyler Warren",
   "Ningwei L",
   "Miguel Borrero",
-  "Sergey",
+  "Sergey Eguy",
   "Laura Mossing",
   "Abhijith Ravinutala",
   "James Han",
@@ -63,7 +63,6 @@ export const PENDING_EVALUATION = [
   "Laura Kostelny",
   "Bryan Porter",
   "Bowman Hall",
-  "Robert Neigert",
   "Jack Carolan",
   "Chris Long",
 ];
