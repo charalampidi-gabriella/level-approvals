@@ -20,13 +20,13 @@ import {
 type Tab = "log" | "lookup";
 
 export default function Page() {
-  const [tab, setTab] = useState<Tab>("lookup");
+  const [tab, setTab] = useState<Tab>("log");
   return (
     <div className="wrap">
       <header>
         <img className="logo" src="/media/rippner-logo.png" alt="Rippner Tennis" />
         <h1>Level Log</h1>
-        <p>Log what you saw or decided. Everyone sees the history before they act.</p>
+        <p>Log coaches' level decisions so the team shares one history.</p>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "lookup"} onClick={() => setTab("lookup")}>
@@ -95,7 +95,7 @@ function CoachPicker({ value, onChange }: { value: string; onChange: (v: string)
       <input
         type="text"
         value={query}
-        placeholder="Start typing your name…"
+        placeholder="Start typing the coach's name…"
         autoComplete="off"
         onChange={(e) => {
           setQuery(e.target.value);
@@ -306,7 +306,7 @@ function LogForm() {
 
   return (
     <div className="card">
-      <label>Your name</label>
+      <label>Coach who made the call</label>
       <CoachPicker value={coach} onChange={setCoach} />
 
       <label>Player</label>
@@ -321,6 +321,10 @@ function LogForm() {
         onSelect={loadHistory}
         onBlur={loadHistory}
       />
+      <p className="hint">
+        <strong>Match the roster spelling.</strong> Capitalization doesn't matter, but a typo
+        (e.g. "Jon" vs "John") creates a separate record and hides history from other coaches.
+      </p>
 
       {history && history.length > 0 && (
         <div className="history-box">
@@ -329,9 +333,8 @@ function LogForm() {
             {history.length === 1 ? "entry" : "entries"}
           </h3>
           <p className="hint">
-            Review before you log. <strong>Do not approve for a higher level</strong> than
-            another coach already approved, and <strong>do not override another coach</strong> —
-            raise it in the coaches' chat if you disagree.
+            Review before logging. If this new entry conflicts with what's already on record,
+            flag it back to the coaches before saving.
           </p>
           {history.map((e) => (
             <EntryLine key={e.id} e={e} />

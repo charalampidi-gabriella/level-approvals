@@ -182,11 +182,14 @@ export async function getAllEntries(): Promise<Evaluation[]> {
   return res.rows.map((r) => toEval(r as Row));
 }
 
-/** Distinct player names already on record — powers the type-ahead suggestions. */
+/** Distinct player names already on record — powers the type-ahead suggestions.
+ *  Deduped by `player_norm` (case + whitespace-insensitive) so casing variants of
+ *  the same name don't show up as separate suggestions. MIN(player) picks the
+ *  most-capitalized variant since capital letters sort before lowercase. */
 export async function getPlayerNames(): Promise<string[]> {
   await ensureSchema();
   const res = await db().execute(
-    `SELECT DISTINCT player FROM evaluations ORDER BY player COLLATE NOCASE`
+    `SELECT MIN(player) AS player FROM evaluations GROUP BY player_norm ORDER BY player COLLATE NOCASE`
   );
   return res.rows.map((r) => String((r as Row).player));
 }
