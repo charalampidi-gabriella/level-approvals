@@ -5,6 +5,7 @@ import {
   COACHES,
   OUTCOMES,
   LEVELS,
+  PENDING_EVALUATION,
   feedbackRequired,
   isWrongClass,
   type Outcome,
@@ -14,7 +15,6 @@ import {
   getPlayerSummary,
   getAllEntries,
   getPlayerNames,
-  getPendingPlayers,
   type Evaluation,
 } from "./actions";
 
@@ -66,6 +66,32 @@ export default function Page() {
   );
 }
 
+// Client-safe name normalizer (mirrors normalizeName in lib/db.ts, which is
+// server-only). Used to group the feed by player.
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+// Gated levels — a player is "in disagreement" when two different coaches land
+// on opposite sides (approved vs denied) of the same gated level.
+const GATED = [
+  { approved: "Approved for 4.0–4.5", denied: "Denied for 4.0–4.5" },
+  { approved: "Approved for 4.5", denied: "Denied for 4.5" },
+];
+
+function hasDisagreement(entries: Evaluation[]): boolean {
+  return GATED.some((g) => {
+    const approvers = new Set(
+      entries.filter((e) => e.outcome === g.approved).map((e) => e.coach)
+    );
+    const deniers = new Set(
+      entries.filter((e) => e.outcome === g.denied).map((e) => e.coach)
+    );
+    if (approvers.size === 0 || deniers.size === 0) return false;
+    // Needs at least two distinct coaches across the two sides — one coach
+    // changing their own mind isn't a disagreement.
+    return new Set([...approvers, ...deniers]).size >= 2;
+  });
+}
+
 function fmt(iso: string) {
   const d = new Date(iso);
   return isNaN(d.getTime())
@@ -79,24 +105,81 @@ function outcomeClass(o: string) {
   return "misplaced"; // Showed up at wrong class
 }
 
-function EntryLine({ e, showPlayer }: { e: Evaluation; showPlayer?: boolean }) {
+// A single logged decision, which may carry more than one outcome when a coach
+// logged a paired call in one go (e.g. "Denied for 4.5" + "Approved for 4.0–4.5").
+type EntryGroup = {
+  id: string;
+  player: string;
+  coach: string;
+  date: string;
+  note: string;
+  attendedLevel: string;
+  correctLevel: string;
+  outcomes: string[];
+};
+
+// Collapse the two rows of a paired decision into one entry. Entries are grouped
+// when the same coach logged the same player with the same note within a short
+// window — this also merges historical pairs logged before they shared a row.
+function groupEntries(list: Evaluation[]): EntryGroup[] {
+  const WINDOW = 5 * 60 * 1000; // 5 minutes
+  const groups: EntryGroup[] = [];
+  const byKey = new Map<string, EntryGroup[]>();
+  for (const e of list) {
+    const key = `${e.coach}|${norm(e.player)}|${e.note}`;
+    const t = new Date(e.date).getTime();
+    const match = (byKey.get(key) ?? []).find(
+      (g) => Math.abs(new Date(g.date).getTime() - t) <= WINDOW
+    );
+    if (match) {
+      if (!match.outcomes.includes(e.outcome)) match.outcomes.push(e.outcome);
+      if (e.attendedLevel) match.attendedLevel = e.attendedLevel;
+      if (e.correctLevel) match.correctLevel = e.correctLevel;
+      if (t > new Date(match.date).getTime()) match.date = e.date; // show latest
+    } else {
+      const g: EntryGroup = {
+        id: e.id,
+        player: e.player,
+        coach: e.coach,
+        date: e.date,
+        note: e.note,
+        attendedLevel: e.attendedLevel,
+        correctLevel: e.correctLevel,
+        outcomes: [e.outcome],
+      };
+      groups.push(g);
+      byKey.set(key, [...(byKey.get(key) ?? []), g]);
+    }
+  }
+  // Stable pill order per group (by the canonical OUTCOMES order).
+  for (const g of groups) {
+    g.outcomes.sort((a, b) => OUTCOMES.indexOf(a as never) - OUTCOMES.indexOf(b as never));
+  }
+  return groups;
+}
+
+function EntryLine({ g, showPlayer }: { g: EntryGroup; showPlayer?: boolean }) {
   return (
     <div className="entry">
       <div className="top">
         <span>
-          {showPlayer && <span className="player-name">{e.player} — </span>}
-          <span className="coach">{e.coach}</span>{" "}
-          <span className={`pill ${outcomeClass(e.outcome)}`}>{e.outcome}</span>
+          {showPlayer && <span className="player-name">{g.player} — </span>}
+          <span className="coach">{g.coach}</span>{" "}
+          {g.outcomes.map((o) => (
+            <span key={o} className={`pill ${outcomeClass(o)}`}>
+              {o}
+            </span>
+          ))}
         </span>
-        <span className="date">{fmt(e.date)}</span>
+        <span className="date">{fmt(g.date)}</span>
       </div>
-      {e.attendedLevel && e.correctLevel && (
+      {g.attendedLevel && g.correctLevel && (
         <div className="levels-line">
-          Attended <strong>{e.attendedLevel}</strong> · should be{" "}
-          <strong>{e.correctLevel}</strong>
+          Attended <strong>{g.attendedLevel}</strong> · should be{" "}
+          <strong>{g.correctLevel}</strong>
         </div>
       )}
-      {e.note && <div className="note">{e.note}</div>}
+      {g.note && <div className="note">{g.note}</div>}
     </div>
   );
 }
@@ -222,7 +305,6 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
   const [outcome, setOutcome] = useState<Outcome | "">("");
   const [nextLevelOutcome, setNextLevelOutcome] = useState<NextLevelOutcome>("");
   const [lowerLevelOutcome, setLowerLevelOutcome] = useState<LowerLevelOutcome>("");
-  const [confident, setConfident] = useState(true);
   const [note, setNote] = useState("");
   const [attendedLevel, setAttendedLevel] = useState("");
   const [correctLevel, setCorrectLevel] = useState("");
@@ -255,7 +337,6 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
     setOutcome("");
     setNextLevelOutcome("");
     setLowerLevelOutcome("");
-    setConfident(true);
     setNote("");
     setAttendedLevel("");
     setCorrectLevel("");
@@ -293,7 +374,7 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
     }
     setBusy(true);
     try {
-      const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel, confident });
+      const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel });
       if (!res.ok) {
         setMsg({ kind: "err", text: res.error });
         return;
@@ -304,7 +385,6 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
           outcome: companionOutcome,
           coach,
           note,
-          confident,
         });
         if (!res2.ok) {
           setMsg({
@@ -364,21 +444,24 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
         (e.g. "Jon" vs "John") creates a separate record and hides history from other coaches.
       </p>
 
-      {history && history.length > 0 && (
-        <div className="history-box">
-          <h3>
-            {player.trim()} already has {history.length}{" "}
-            {history.length === 1 ? "entry" : "entries"}
-          </h3>
-          <p className="hint">
-            Review before logging, but go ahead and submit your own read even if it conflicts
-            with what's already on record — the disagreement is the useful part.
-          </p>
-          {history.map((e) => (
-            <EntryLine key={e.id} e={e} />
-          ))}
-        </div>
-      )}
+      {history && history.length > 0 && (() => {
+        const groups = groupEntries(history);
+        return (
+          <div className="history-box">
+            <h3>
+              {player.trim()} already has {groups.length}{" "}
+              {groups.length === 1 ? "entry" : "entries"}
+            </h3>
+            <p className="hint">
+              Review before logging, but go ahead and submit your own read even if it conflicts
+              with what's already on record — the disagreement is the useful part.
+            </p>
+            {groups.map((g) => (
+              <EntryLine key={g.id} g={g} />
+            ))}
+          </div>
+        );
+      })()}
 
       <label>What are you logging?</label>
       <div className="outcome-list">
@@ -509,33 +592,6 @@ function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
         </div>
       )}
 
-      {outcome && !isWrongClass(outcome) && (
-        <div className="next-level">
-          <label>Are you 100% confident in this decision?</label>
-          <div className="outcome-list">
-            <button
-              type="button"
-              className={`outcome-btn ${confident ? "sel-approved" : ""}`}
-              onClick={() => setConfident(true)}
-            >
-              Yes, I&apos;m confident
-            </button>
-            <button
-              type="button"
-              className={`outcome-btn ${!confident ? "sel-notready" : ""}`}
-              onClick={() => setConfident(false)}
-            >
-              Not sure — keep them pending
-            </button>
-          </div>
-          <p className="hint">
-            {confident
-              ? "This player will drop off the pending-evaluation list."
-              : "Saved as a tentative read — the player stays on the pending list for a firmer call later."}
-          </p>
-        </div>
-      )}
-
       <label>Feedback {feedbackIsRequired ? "(required)" : "(optional)"}</label>
       <textarea
         value={note}
@@ -556,13 +612,34 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
   const [name, setName] = useState("");
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
-  const [pending, setPending] = useState<string[]>([]);
 
   useEffect(() => {
     getAllEntries().then(setAll);
     getPlayerNames().then(setNames);
-    getPendingPlayers().then(setPending);
   }, []);
+
+  // Group the loaded feed by normalized player name so we can derive who is
+  // still pending and who is in disagreement — all client-side, no extra calls.
+  const byPlayer = new Map<string, Evaluation[]>();
+  for (const e of all ?? []) {
+    const k = norm(e.player);
+    const list = byPlayer.get(k);
+    if (list) list.push(e);
+    else byPlayer.set(k, [e]);
+  }
+
+  // Pending = emailed players not yet evaluated by two different coaches.
+  // `votes` is the distinct-coach count so far (0 or 1 while still pending).
+  const pending = PENDING_EVALUATION.map((p) => {
+    const entries = byPlayer.get(norm(p)) ?? [];
+    return { name: p, votes: new Set(entries.map((e) => e.coach)).size };
+  }).filter((p) => p.votes < 2);
+
+  // Disagreements = any player (not just the emailed ones) with conflicting calls.
+  const disagreements: string[] = [];
+  for (const entries of byPlayer.values()) {
+    if (hasDisagreement(entries)) disagreements.push(entries[0].player);
+  }
 
   // Filter the already-loaded feed in place — no server round-trip.
   const q = name.trim().toLowerCase();
@@ -572,6 +649,17 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
       : all
     : null;
 
+  // Collapse paired decisions into single rows for the feed.
+  const filteredGroups = filtered ? groupEntries(filtered) : null;
+
+  // Flag the results when the searched player(s) have a coach disagreement.
+  const filteredDisagrees =
+    q && filtered
+      ? [...new Set(filtered.map((e) => norm(e.player)))].some((k) =>
+          hasDisagreement(byPlayer.get(k) ?? [])
+        )
+      : false;
+
   return (
     <div className="card">
       {pending.length > 0 && (
@@ -579,15 +667,38 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
           <h3>Pending evaluation ({pending.length})</h3>
           <p className="hint">
             These players asked to be evaluated. Click a name to log your call —
-            it drops off once someone logs a confident decision.
+            it drops off once two different coaches have weighed in.
           </p>
           <div className="pending-chips">
             {pending.map((p) => (
               <button
-                key={p}
+                key={p.name}
                 type="button"
                 className="chip"
-                onClick={() => onEvaluate(p)}
+                onClick={() => onEvaluate(p.name)}
+              >
+                {p.name}
+                {p.votes > 0 && <span className="chip-votes"> {p.votes}/2</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {disagreements.length > 0 && (
+        <div className="disagree-box">
+          <h3>⚠ Coaches disagree ({disagreements.length})</h3>
+          <p className="hint">
+            Two coaches landed on opposite sides for a gated level. Click a name
+            to see the entries and reconcile.
+          </p>
+          <div className="pending-chips">
+            {disagreements.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className="chip warn"
+                onClick={() => setName(p)}
               >
                 {p}
               </button>
@@ -604,18 +715,23 @@ function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
         onChange={setName}
       />
 
-      {filtered && (
+      {filteredGroups && (
         <>
           <h3 style={{ marginTop: "1.25rem" }}>
             {q ? `Results for “${name.trim()}”` : "All entries"}{" "}
-            {filtered.length > 0 && `(${filtered.length})`}
+            {filteredGroups.length > 0 && `(${filteredGroups.length})`}
           </h3>
-          {filtered.length === 0 ? (
+          {filteredDisagrees && (
+            <div className="disagree-banner">
+              ⚠ Coaches disagree on a gated level for this player — reconcile before acting.
+            </div>
+          )}
+          {filteredGroups.length === 0 ? (
             <p className="hint">
               {q ? "No entries match that name." : "No entries logged yet."}
             </p>
           ) : (
-            filtered.map((e) => <EntryLine key={e.id} e={e} showPlayer />)
+            filteredGroups.map((g) => <EntryLine key={g.id} g={g} showPlayer />)
           )}
         </>
       )}

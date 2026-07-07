@@ -30,8 +30,7 @@ export function ensureSchema(): Promise<void> {
           note           TEXT,
           status         TEXT NOT NULL DEFAULT 'active',
           attended_level TEXT NOT NULL DEFAULT '',
-          correct_level  TEXT NOT NULL DEFAULT '',
-          confident      INTEGER NOT NULL DEFAULT 0
+          correct_level  TEXT NOT NULL DEFAULT ''
         )
       `);
       // Add columns for DBs created before wrong-class levels existed.
@@ -44,16 +43,6 @@ export function ensureSchema(): Promise<void> {
         } catch {
           /* column already exists */
         }
-      }
-      // `confident` (0/1): whether the coach was 100% sure. Drives the pending
-      // list — a player clears once a confident decision exists. Added later, so
-      // back-fill on older DBs; legacy rows default to 0 (treated as tentative).
-      try {
-        await client.execute(
-          `ALTER TABLE evaluations ADD COLUMN confident INTEGER NOT NULL DEFAULT 0`
-        );
-      } catch {
-        /* column already exists */
       }
       await client.execute(
         `CREATE INDEX IF NOT EXISTS idx_eval_player_norm ON evaluations (player_norm)`
