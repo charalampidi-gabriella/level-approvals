@@ -333,8 +333,8 @@ function LogForm() {
             {history.length === 1 ? "entry" : "entries"}
           </h3>
           <p className="hint">
-            Review before logging. If this new entry conflicts with what's already on record,
-            flag it back to the coaches before saving.
+            Review before logging, but go ahead and submit your own read even if it conflicts
+            with what's already on record — the disagreement is the useful part.
           </p>
           {history.map((e) => (
             <EntryLine key={e.id} e={e} />
