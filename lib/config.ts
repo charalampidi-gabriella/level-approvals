@@ -23,6 +23,35 @@ export const COACHES = [
   "Val",
 ];
 
+// Players we emailed inviting them to be evaluated. Pre-seeded so coaches can
+// click a name instead of retyping it (avoids typo-split history). A name drops
+// off the pending list once a *confident* decision is logged for that player —
+// see getPendingPlayers() in app/actions.ts. Edit this list as invites change.
+export const PENDING_EVALUATION = [
+  "Kausik Kannan",
+  "Bredt Norwood",
+  "Mikael Gonzales",
+  "William Marshall",
+  "Casey King",
+  "David Burton",
+  "Kolin Smialek",
+  "Shane Tanner",
+  "Scott Stein",
+  "Oliver Yu",
+  "Bob Rayburn",
+  "Eddie Adair",
+  "Patrick Gallagher",
+  "Todd Kurio",
+  "Aaron Myers",
+  "Christin Evans",
+  "Christy Schrader",
+  "Jeremy Wright",
+  "Gaby Charalampidi",
+  "Andrea Martinez Swanson",
+  "Matthew Giovanoni",
+  "Michael DeLoach",
+];
+
 // Ordered low -> high. Drives dropdowns and the player summary ordering.
 export const LEVELS = [
   "Beginner",

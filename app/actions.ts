@@ -2,7 +2,14 @@
 
 import { randomUUID } from "crypto";
 import { db, ensureSchema, normalizeName } from "@/lib/db";
-import { COACHES, OUTCOMES, LEVELS, feedbackRequired, isWrongClass } from "@/lib/config";
+import {
+  COACHES,
+  OUTCOMES,
+  LEVELS,
+  PENDING_EVALUATION,
+  feedbackRequired,
+  isWrongClass,
+} from "@/lib/config";
 import { notifyNewEntry } from "@/lib/notify";
 
 export type Evaluation = {
@@ -14,6 +21,7 @@ export type Evaluation = {
   note: string;
   attendedLevel: string; // wrong-class only: level they showed up to
   correctLevel: string; // wrong-class only: level they should be in
+  confident: boolean; // coach was 100% sure — clears the player from pending
 };
 
 type Row = Record<string, unknown>;
@@ -28,6 +36,7 @@ function toEval(r: Row): Evaluation {
     note: r.note == null ? "" : String(r.note),
     attendedLevel: r.attended_level == null ? "" : String(r.attended_level),
     correctLevel: r.correct_level == null ? "" : String(r.correct_level),
+    confident: Number(r.confident) === 1,
   };
 }
 
@@ -64,10 +73,12 @@ export async function submitEntry(data: {
   note?: string;
   attendedLevel?: string;
   correctLevel?: string;
+  confident?: boolean;
 }): Promise<SubmitResult> {
   const player = data.player.trim();
   const { outcome, coach } = data;
   const note = (data.note ?? "").trim();
+  const confident = data.confident ? 1 : 0;
   // Levels only apply to wrong-class entries; ignore them otherwise.
   const attendedLevel = isWrongClass(outcome) ? (data.attendedLevel ?? "").trim() : "";
   const correctLevel = isWrongClass(outcome) ? (data.correctLevel ?? "").trim() : "";
@@ -82,8 +93,8 @@ export async function submitEntry(data: {
   await db().execute({
     sql: `INSERT INTO evaluations
             (id, created_at, player, player_norm, level, verdict, coach, note, status,
-             attended_level, correct_level)
-          VALUES (?, ?, ?, ?, '', ?, ?, ?, 'active', ?, ?)`,
+             attended_level, correct_level, confident)
+          VALUES (?, ?, ?, ?, '', ?, ?, ?, 'active', ?, ?, ?)`,
     args: [
       id,
       createdAt,
@@ -94,6 +105,7 @@ export async function submitEntry(data: {
       note,
       attendedLevel,
       correctLevel,
+      confident,
     ],
   });
 
@@ -107,6 +119,7 @@ export async function submitEntry(data: {
     note,
     attendedLevel,
     correctLevel,
+    confident: confident === 1,
   });
 
   return { ok: true };
@@ -192,6 +205,18 @@ export async function getPlayerNames(): Promise<string[]> {
     `SELECT MIN(player) AS player FROM evaluations GROUP BY player_norm ORDER BY player COLLATE NOCASE`
   );
   return res.rows.map((r) => String((r as Row).player));
+}
+
+/** Emailed players still awaiting a firm call — the seed list minus anyone who
+ *  already has a *confident* decision on record. A tentative entry (confident=0)
+ *  keeps the player pending so someone gives them a firm read later. */
+export async function getPendingPlayers(): Promise<string[]> {
+  await ensureSchema();
+  const res = await db().execute(
+    `SELECT DISTINCT player_norm FROM evaluations WHERE confident = 1`
+  );
+  const decided = new Set(res.rows.map((r) => String((r as Row).player_norm)));
+  return PENDING_EVALUATION.filter((name) => !decided.has(normalizeName(name)));
 }
 
 export async function getConfig() {

@@ -14,6 +14,7 @@ import {
   getPlayerSummary,
   getAllEntries,
   getPlayerNames,
+  getPendingPlayers,
   type Evaluation,
 } from "./actions";
 
@@ -21,6 +22,15 @@ type Tab = "log" | "lookup";
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("log");
+  // When a coach clicks a pending name in Look-up, jump to the log form with the
+  // name already filled in (no retyping, no typo-split history).
+  const [prefill, setPrefill] = useState("");
+
+  function startLog(name: string) {
+    setPrefill(name);
+    setTab("log");
+  }
+
   return (
     <div className="wrap">
       <header>
@@ -29,14 +39,29 @@ export default function Page() {
         <p>Log coaches' level decisions so the team shares one history.</p>
       </header>
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === "lookup"} onClick={() => setTab("lookup")}>
+        <button
+          role="tab"
+          aria-selected={tab === "lookup"}
+          onClick={() => setTab("lookup")}
+        >
           Look up player
         </button>
-        <button role="tab" aria-selected={tab === "log"} onClick={() => setTab("log")}>
+        <button
+          role="tab"
+          aria-selected={tab === "log"}
+          onClick={() => {
+            setPrefill("");
+            setTab("log");
+          }}
+        >
           Log entry
         </button>
       </div>
-      {tab === "log" ? <LogForm /> : <Lookup />}
+      {tab === "log" ? (
+        <LogForm initialPlayer={prefill} />
+      ) : (
+        <Lookup onEvaluate={startLog} />
+      )}
     </div>
   );
 }
@@ -191,12 +216,13 @@ function PlayerPicker({
 type NextLevelOutcome = "" | "Approved for 4.5" | "Denied for 4.5";
 type LowerLevelOutcome = "" | "Approved for 4.0–4.5" | "Denied for 4.0–4.5";
 
-function LogForm() {
+function LogForm({ initialPlayer = "" }: { initialPlayer?: string }) {
   const [coach, setCoach] = useState("");
-  const [player, setPlayer] = useState("");
+  const [player, setPlayer] = useState(initialPlayer);
   const [outcome, setOutcome] = useState<Outcome | "">("");
   const [nextLevelOutcome, setNextLevelOutcome] = useState<NextLevelOutcome>("");
   const [lowerLevelOutcome, setLowerLevelOutcome] = useState<LowerLevelOutcome>("");
+  const [confident, setConfident] = useState(true);
   const [note, setNote] = useState("");
   const [attendedLevel, setAttendedLevel] = useState("");
   const [correctLevel, setCorrectLevel] = useState("");
@@ -209,6 +235,9 @@ function LogForm() {
 
   useEffect(() => {
     getPlayerNames().then(setNames);
+    // Pre-filled from a pending-player click — surface their history immediately.
+    if (initialPlayer) loadHistory(initialPlayer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadHistory(raw: string) {
@@ -226,6 +255,7 @@ function LogForm() {
     setOutcome("");
     setNextLevelOutcome("");
     setLowerLevelOutcome("");
+    setConfident(true);
     setNote("");
     setAttendedLevel("");
     setCorrectLevel("");
@@ -263,7 +293,7 @@ function LogForm() {
     }
     setBusy(true);
     try {
-      const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel });
+      const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel, confident });
       if (!res.ok) {
         setMsg({ kind: "err", text: res.error });
         return;
@@ -274,6 +304,7 @@ function LogForm() {
           outcome: companionOutcome,
           coach,
           note,
+          confident,
         });
         if (!res2.ok) {
           setMsg({
@@ -478,6 +509,33 @@ function LogForm() {
         </div>
       )}
 
+      {outcome && !isWrongClass(outcome) && (
+        <div className="next-level">
+          <label>Are you 100% confident in this decision?</label>
+          <div className="outcome-list">
+            <button
+              type="button"
+              className={`outcome-btn ${confident ? "sel-approved" : ""}`}
+              onClick={() => setConfident(true)}
+            >
+              Yes, I&apos;m confident
+            </button>
+            <button
+              type="button"
+              className={`outcome-btn ${!confident ? "sel-notready" : ""}`}
+              onClick={() => setConfident(false)}
+            >
+              Not sure — keep them pending
+            </button>
+          </div>
+          <p className="hint">
+            {confident
+              ? "This player will drop off the pending-evaluation list."
+              : "Saved as a tentative read — the player stays on the pending list for a firmer call later."}
+          </p>
+        </div>
+      )}
+
       <label>Feedback {feedbackIsRequired ? "(required)" : "(optional)"}</label>
       <textarea
         value={note}
@@ -494,14 +552,16 @@ function LogForm() {
   );
 }
 
-function Lookup() {
+function Lookup({ onEvaluate }: { onEvaluate: (name: string) => void }) {
   const [name, setName] = useState("");
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
+  const [pending, setPending] = useState<string[]>([]);
 
   useEffect(() => {
     getAllEntries().then(setAll);
     getPlayerNames().then(setNames);
+    getPendingPlayers().then(setPending);
   }, []);
 
   // Filter the already-loaded feed in place — no server round-trip.
@@ -514,6 +574,28 @@ function Lookup() {
 
   return (
     <div className="card">
+      {pending.length > 0 && (
+        <div className="pending-box">
+          <h3>Pending evaluation ({pending.length})</h3>
+          <p className="hint">
+            These players asked to be evaluated. Click a name to log your call —
+            it drops off once someone logs a confident decision.
+          </p>
+          <div className="pending-chips">
+            {pending.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className="chip"
+                onClick={() => onEvaluate(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <label>Player name</label>
       <PlayerPicker
         value={name}

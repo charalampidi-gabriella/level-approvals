@@ -208,3 +208,25 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .matches a { display: block; padding: 0.5rem 0; color: var(--blue); cursor: pointer; }
 .hint { color: var(--muted); font-size: 0.85rem; margin-top: 0.5rem; }
+
+.pending-box {
+  border: 1px solid var(--blue);
+  background: #eef7fa;
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+.pending-box h3 { margin: 0; font-size: 0.95rem; color: var(--navy); }
+.pending-box .hint { margin-top: 0.35rem; }
+.pending-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+.chip {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--blue);
+  background: #fff;
+  color: var(--navy);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip:hover { background: var(--blue); color: #fff; }
