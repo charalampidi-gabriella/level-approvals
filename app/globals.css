@@ -255,3 +255,41 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+.admin-add { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
+.admin-add input { flex: 1; }
+.admin-add-btn {
+  padding: 0 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.admin-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.admin-list { margin-top: 1rem; }
+.admin-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.admin-row:first-child { border-top: none; }
+.admin-remove {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-remove:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+.admin-remove:disabled { opacity: 0.5; cursor: not-allowed; }

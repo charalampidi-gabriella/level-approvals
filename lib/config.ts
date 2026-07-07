@@ -34,7 +34,6 @@ export const PENDING_EVALUATION = [
   "William Marshall",
   "Casey King",
   "David Burton",
-  "Kolin Smialek",
   "Shane Tanner",
   "Scott Stein",
   "Oliver Yu",

@@ -197,3 +197,60 @@ export async function getPlayerNames(): Promise<string[]> {
 export async function getConfig() {
   return { coaches: COACHES, outcomes: OUTCOMES };
 }
+
+// ---- Pending-evaluation roster (manager-editable) ----
+
+/** Names on the pending-evaluation list, alphabetical. Public read. */
+export async function getPendingSeed(): Promise<string[]> {
+  await ensureSchema();
+  const res = await db().execute(
+    `SELECT name FROM pending_players ORDER BY name COLLATE NOCASE`
+  );
+  return res.rows.map((r) => String((r as Row).name));
+}
+
+// The manager passcode lives in an env var, never in the repo. Missing/blank
+// means the admin area is locked for everyone until it's configured.
+function passcodeOk(passcode: string): boolean {
+  const expected = process.env.ADMIN_PASSCODE;
+  return !!expected && passcode === expected;
+}
+
+export type AdminResult =
+  | { ok: true; pending: string[] }
+  | { ok: false; error: string };
+
+/** Verify the passcode and return the current list (powers the unlock step). */
+export async function adminListPending(passcode: string): Promise<AdminResult> {
+  if (!passcodeOk(passcode)) return { ok: false, error: "Wrong passcode." };
+  return { ok: true, pending: await getPendingSeed() };
+}
+
+export async function addPendingPlayer(
+  name: string,
+  passcode: string
+): Promise<AdminResult> {
+  if (!passcodeOk(passcode)) return { ok: false, error: "Wrong passcode." };
+  const clean = name.trim();
+  if (!clean) return { ok: false, error: "Enter a name." };
+  await ensureSchema();
+  await db().execute({
+    sql: `INSERT OR IGNORE INTO pending_players (name, name_norm, created_at)
+          VALUES (?, ?, ?)`,
+    args: [clean, normalizeName(clean), new Date().toISOString()],
+  });
+  return { ok: true, pending: await getPendingSeed() };
+}
+
+export async function removePendingPlayer(
+  name: string,
+  passcode: string
+): Promise<AdminResult> {
+  if (!passcodeOk(passcode)) return { ok: false, error: "Wrong passcode." };
+  await ensureSchema();
+  await db().execute({
+    sql: `DELETE FROM pending_players WHERE name_norm = ?`,
+    args: [normalizeName(name)],
+  });
+  return { ok: true, pending: await getPendingSeed() };
+}

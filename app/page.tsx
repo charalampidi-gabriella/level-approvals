@@ -5,7 +5,6 @@ import {
   COACHES,
   OUTCOMES,
   LEVELS,
-  PENDING_EVALUATION,
   feedbackRequired,
   isWrongClass,
   type Outcome,
@@ -15,10 +14,14 @@ import {
   getPlayerSummary,
   getAllEntries,
   getPlayerNames,
+  getPendingSeed,
+  adminListPending,
+  addPendingPlayer,
+  removePendingPlayer,
   type Evaluation,
 } from "./actions";
 
-type Tab = "log" | "lookup";
+type Tab = "log" | "lookup" | "admin";
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("log");
@@ -45,8 +48,15 @@ export default function Page() {
         >
           Log entry
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === "admin"}
+          onClick={() => setTab("admin")}
+        >
+          Manage list
+        </button>
       </div>
-      {tab === "log" ? <LogForm /> : <Lookup />}
+      {tab === "log" ? <LogForm /> : tab === "lookup" ? <Lookup /> : <Admin />}
     </div>
   );
 }
@@ -300,14 +310,16 @@ function LogForm() {
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [names, setNames] = useState<string[]>([]);
   const [all, setAll] = useState<Evaluation[] | null>(null);
+  const [pendingSeed, setPendingSeed] = useState<string[]>([]);
 
   useEffect(() => {
     getPlayerNames().then(setNames);
     getAllEntries().then(setAll);
+    getPendingSeed().then(setPendingSeed);
   }, []);
 
-  // Emailed players not yet evaluated by two different coaches. `votes` is the
-  // distinct-coach count so far (0 or 1 while still pending).
+  // Pending players (from the manager-editable list) not yet evaluated by two
+  // different coaches. `votes` is the distinct-coach count so far (0 or 1).
   const byPlayer = new Map<string, Evaluation[]>();
   for (const e of all ?? []) {
     const k = norm(e.player);
@@ -315,10 +327,12 @@ function LogForm() {
     if (list) list.push(e);
     else byPlayer.set(k, [e]);
   }
-  const pending = PENDING_EVALUATION.map((p) => {
-    const entries = byPlayer.get(norm(p)) ?? [];
-    return { name: p, votes: new Set(entries.map((e) => e.coach)).size };
-  }).filter((p) => p.votes < 2);
+  const pending = pendingSeed
+    .map((p) => {
+      const entries = byPlayer.get(norm(p)) ?? [];
+      return { name: p, votes: new Set(entries.map((e) => e.coach)).size };
+    })
+    .filter((p) => p.votes < 2);
 
   function pickPending(name: string) {
     setPlayer(name);
@@ -732,6 +746,133 @@ function Lookup() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// Manager-only screen (passcode-gated) for editing the pending-evaluation list.
+function Admin() {
+  const [passcode, setPasscode] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
+  const [list, setList] = useState<string[]>([]);
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function unlock() {
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = await adminListPending(passcode);
+      if (!res.ok) {
+        setErr(res.error);
+        return;
+      }
+      setList(res.pending);
+      setUnlocked(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function add() {
+    if (!newName.trim()) return;
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = await addPendingPlayer(newName, passcode);
+      if (!res.ok) {
+        setErr(res.error);
+        return;
+      }
+      setList(res.pending);
+      setNewName("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(name: string) {
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = await removePendingPlayer(name, passcode);
+      if (res.ok) setList(res.pending);
+      else setErr(res.error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!unlocked) {
+    return (
+      <div className="card">
+        <label>Manager passcode</label>
+        <input
+          type="password"
+          value={passcode}
+          placeholder="Enter passcode to manage the pending list"
+          autoComplete="off"
+          onChange={(e) => setPasscode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") unlock();
+          }}
+        />
+        <button className="primary" onClick={unlock} disabled={busy || !passcode}>
+          {busy ? "Checking…" : "Unlock"}
+        </button>
+        {err && <div className="msg err">{err}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h3 style={{ margin: "0 0 0.25rem" }}>Pending evaluation list ({list.length})</h3>
+      <p className="hint">
+        Add players who asked to be evaluated. They appear as clickable chips on
+        the Log tab and drop off once two different coaches log a call.
+      </p>
+
+      <label>Add a player</label>
+      <div className="admin-add">
+        <input
+          type="text"
+          value={newName}
+          placeholder="Full name"
+          autoComplete="off"
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") add();
+          }}
+        />
+        <button className="admin-add-btn" onClick={add} disabled={busy || !newName.trim()}>
+          Add
+        </button>
+      </div>
+
+      {err && <div className="msg err">{err}</div>}
+
+      <div className="admin-list">
+        {list.length === 0 ? (
+          <p className="hint">The list is empty.</p>
+        ) : (
+          list.map((name) => (
+            <div key={name} className="admin-row">
+              <span>{name}</span>
+              <button
+                type="button"
+                className="admin-remove"
+                onClick={() => remove(name)}
+                disabled={busy}
+                aria-label={`Remove ${name}`}
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
+import { PENDING_EVALUATION } from "./config";
 
 let _client: Client | null = null;
 let _schemaReady: Promise<void> | null = null;
@@ -47,6 +48,41 @@ export function ensureSchema(): Promise<void> {
       await client.execute(
         `CREATE INDEX IF NOT EXISTS idx_eval_player_norm ON evaluations (player_norm)`
       );
+
+      // Manager-editable pending-evaluation roster + a tiny key/value table used
+      // to record one-time bootstraps.
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS pending_players (
+          name       TEXT NOT NULL,
+          name_norm  TEXT PRIMARY KEY,
+          created_at TEXT NOT NULL
+        )
+      `);
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS app_meta (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      `);
+      // Seed the pending roster from config exactly once, ever. Guarded by a
+      // meta flag so a manager deleting everyone doesn't get it re-seeded on the
+      // next cold start.
+      const seeded = await client.execute(
+        `SELECT 1 FROM app_meta WHERE key = 'pending_seeded'`
+      );
+      if (seeded.rows.length === 0) {
+        const now = new Date().toISOString();
+        for (const name of PENDING_EVALUATION) {
+          await client.execute({
+            sql: `INSERT OR IGNORE INTO pending_players (name, name_norm, created_at)
+                  VALUES (?, ?, ?)`,
+            args: [name, normalizeName(name), now],
+          });
+        }
+        await client.execute(
+          `INSERT INTO app_meta (key, value) VALUES ('pending_seeded', '1')`
+        );
+      }
     })().catch((e) => {
       _schemaReady = null; // allow retry on next call
       throw e;
