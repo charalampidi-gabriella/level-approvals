@@ -69,7 +69,7 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 // Players carrying the elite "4.75" designation (see LEVEL_475 in config).
 const SET_475 = new Set(LEVEL_475.map(norm));
 const is475 = (name: string) => SET_475.has(norm(name));
-const Badge475 = () => <span className="badge-475">4.75</span>;
+const Badge475 = () => <span className="badge-475">4.5–5.0</span>;
 
 // Gated levels — a player is "in disagreement" when two different coaches land
 // on opposite sides (approved vs denied) of the same gated level.

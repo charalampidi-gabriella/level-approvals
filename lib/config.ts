@@ -66,9 +66,9 @@ export const PENDING_EVALUATION = [
   "Chris Long",
 ];
 
-// Players carrying the elite "4.75" designation. Shown as a badge next to their
-// name wherever it appears in the app (feed, look-up, history). This is a label
-// only — separate from the logged 4.5 approval entries.
+// Players carrying the elite "4.5–5.0" designation. Shown as a discreet badge
+// next to their name wherever it appears in the app (feed, look-up, history).
+// This is a label only — separate from the logged 4.5 approval entries.
 export const LEVEL_475 = [
   "Matt Alderson",
   "Zuka Bakradze",
