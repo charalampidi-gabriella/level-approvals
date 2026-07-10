@@ -5,6 +5,7 @@ import {
   COACHES,
   OUTCOMES,
   LEVELS,
+  LEVEL_475,
   feedbackRequired,
   isWrongClass,
   type Outcome,
@@ -64,6 +65,11 @@ export default function Page() {
 // Client-safe name normalizer (mirrors normalizeName in lib/db.ts, which is
 // server-only). Used to group the feed by player.
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+// Players carrying the elite "4.75" designation (see LEVEL_475 in config).
+const SET_475 = new Set(LEVEL_475.map(norm));
+const is475 = (name: string) => SET_475.has(norm(name));
+const Badge475 = () => <span className="badge-475">4.75</span>;
 
 // Gated levels — a player is "in disagreement" when two different coaches land
 // on opposite sides (approved vs denied) of the same gated level.
@@ -158,7 +164,13 @@ function EntryLine({ g, showPlayer }: { g: EntryGroup; showPlayer?: boolean }) {
     <div className="entry">
       <div className="top">
         <span>
-          {showPlayer && <span className="player-name">{g.player} — </span>}
+          {showPlayer && (
+            <>
+              <span className="player-name">{g.player}</span>
+              {is475(g.player) && <Badge475 />}
+              <span className="player-name"> — </span>
+            </>
+          )}
           <span className="coach">{g.coach}</span>{" "}
           {g.outcomes.map((o) => (
             <span key={o} className={`pill ${outcomeClass(o)}`}>
@@ -490,7 +502,7 @@ function LogForm() {
         return (
           <div className="history-box">
             <h3>
-              {player.trim()} already has {groups.length}{" "}
+              {player.trim()} {is475(player) && <Badge475 />} already has {groups.length}{" "}
               {groups.length === 1 ? "entry" : "entries"}
             </h3>
             <p className="hint">
@@ -730,6 +742,7 @@ function Lookup() {
         <>
           <h3 style={{ marginTop: "1.25rem" }}>
             {q ? `Results for “${name.trim()}”` : "All entries"}{" "}
+            {q && is475(name) && <Badge475 />}{" "}
             {filteredGroups.length > 0 && `(${filteredGroups.length})`}
           </h3>
           {filteredDisagrees && (

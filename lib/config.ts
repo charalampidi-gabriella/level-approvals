@@ -66,6 +66,47 @@ export const PENDING_EVALUATION = [
   "Chris Long",
 ];
 
+// Players carrying the elite "4.75" designation. Shown as a badge next to their
+// name wherever it appears in the app (feed, look-up, history). This is a label
+// only — separate from the logged 4.5 approval entries.
+export const LEVEL_475 = [
+  "Matt Alderson",
+  "Zuka Bakradze",
+  "Mark Begert",
+  "Nik Bhattacharya",
+  "Bobby Blanchard",
+  "Lucas Bombonatti",
+  "James Boriack",
+  "Raymond Borjas",
+  "Christopher Bunker",
+  "Gaby Charalampidi",
+  "Johnathan Chen",
+  "Kieran Cronin",
+  "Raul De La Torre",
+  "Alex Johns",
+  "Victoria Kareh",
+  "Jon Kaufman",
+  "Jacques Klick",
+  "Aldo Mell",
+  "Dillon Meyer",
+  "Mehdi Miremadi",
+  "Ryan Mullins",
+  "Aidan Peeples",
+  "Evan Pena",
+  "Mark Prettyman",
+  "Charles Sylvetsky",
+  "Julie Thu",
+  "Colin Thurmond",
+  "Christina Tollemache",
+  "Ian Vaisman",
+  "Zaid Vakil",
+  "Robert Valashinas",
+  "Bianca Vitale",
+  "Tim Walsh",
+  "Whitney Wofford",
+  "Anastasia Zavgorodni",
+];
+
 // Ordered low -> high. Drives dropdowns and the player summary ordering.
 export const LEVELS = [
   "Beginner",
