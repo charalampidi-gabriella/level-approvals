@@ -270,6 +270,22 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   font-weight: 600;
 }
 
+.pending-box-new { border-color: var(--green); background: #f6fbe6; }
+
+.admin-cat {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.admin-cat.new { border-color: var(--green); color: #4a6b00; }
+
 .admin-add { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
 .admin-add input { flex: 1; }
 .admin-add-btn {

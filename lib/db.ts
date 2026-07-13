@@ -50,14 +50,26 @@ export function ensureSchema(): Promise<void> {
       );
 
       // Manager-editable pending-evaluation roster + a tiny key/value table used
-      // to record one-time bootstraps.
+      // to record one-time bootstraps. `category` sets how many distinct coaches
+      // must weigh in before the player clears: 'refresh' (previously-approved
+      // players being re-vetted) needs 2, 'new' needs 1.
       await client.execute(`
         CREATE TABLE IF NOT EXISTS pending_players (
           name       TEXT NOT NULL,
           name_norm  TEXT PRIMARY KEY,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          category   TEXT NOT NULL DEFAULT 'refresh'
         )
       `);
+      // Add the column on DBs created before categories existed. Existing rows
+      // default to 'refresh' — the seeded list is the already-approved players.
+      try {
+        await client.execute(
+          `ALTER TABLE pending_players ADD COLUMN category TEXT NOT NULL DEFAULT 'refresh'`
+        );
+      } catch {
+        /* column already exists */
+      }
       await client.execute(`
         CREATE TABLE IF NOT EXISTS app_meta (
           key   TEXT PRIMARY KEY,

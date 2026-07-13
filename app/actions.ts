@@ -200,13 +200,21 @@ export async function getConfig() {
 
 // ---- Pending-evaluation roster (manager-editable) ----
 
-/** Names on the pending-evaluation list, alphabetical. Public read. */
-export async function getPendingSeed(): Promise<string[]> {
+// 'refresh': previously-approved players being re-vetted — clears on 2 coaches.
+// 'new': first-time requests — clears on 1 coach.
+export type PendingCategory = "refresh" | "new";
+export type PendingPlayer = { name: string; category: PendingCategory };
+
+/** Pending-evaluation list with categories, alphabetical. Public read. */
+export async function getPendingSeed(): Promise<PendingPlayer[]> {
   await ensureSchema();
   const res = await db().execute(
-    `SELECT name FROM pending_players ORDER BY name COLLATE NOCASE`
+    `SELECT name, category FROM pending_players ORDER BY name COLLATE NOCASE`
   );
-  return res.rows.map((r) => String((r as Row).name));
+  return res.rows.map((r) => ({
+    name: String((r as Row).name),
+    category: String((r as Row).category) === "new" ? "new" : "refresh",
+  }));
 }
 
 // The manager passcode lives in an env var, never in the repo. Missing/blank
@@ -217,7 +225,7 @@ function passcodeOk(passcode: string): boolean {
 }
 
 export type AdminResult =
-  | { ok: true; pending: string[] }
+  | { ok: true; pending: PendingPlayer[] }
   | { ok: false; error: string };
 
 /** Verify the passcode and return the current list (powers the unlock step). */
@@ -228,16 +236,20 @@ export async function adminListPending(passcode: string): Promise<AdminResult> {
 
 export async function addPendingPlayer(
   name: string,
-  passcode: string
+  passcode: string,
+  category: PendingCategory
 ): Promise<AdminResult> {
   if (!passcodeOk(passcode)) return { ok: false, error: "Wrong passcode." };
   const clean = name.trim();
   if (!clean) return { ok: false, error: "Enter a name." };
+  const cat: PendingCategory = category === "new" ? "new" : "refresh";
   await ensureSchema();
+  // Upsert so re-adding an existing name just moves it to the chosen category.
   await db().execute({
-    sql: `INSERT OR IGNORE INTO pending_players (name, name_norm, created_at)
-          VALUES (?, ?, ?)`,
-    args: [clean, normalizeName(clean), new Date().toISOString()],
+    sql: `INSERT INTO pending_players (name, name_norm, created_at, category)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(name_norm) DO UPDATE SET category = excluded.category`,
+    args: [clean, normalizeName(clean), new Date().toISOString(), cat],
   });
   return { ok: true, pending: await getPendingSeed() };
 }

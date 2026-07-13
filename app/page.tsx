@@ -20,6 +20,8 @@ import {
   addPendingPlayer,
   removePendingPlayer,
   type Evaluation,
+  type PendingPlayer,
+  type PendingCategory,
 } from "./actions";
 
 type Tab = "log" | "lookup" | "admin";
@@ -322,7 +324,7 @@ function LogForm() {
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [names, setNames] = useState<string[]>([]);
   const [all, setAll] = useState<Evaluation[] | null>(null);
-  const [pendingSeed, setPendingSeed] = useState<string[]>([]);
+  const [pendingSeed, setPendingSeed] = useState<PendingPlayer[]>([]);
 
   useEffect(() => {
     getPlayerNames().then(setNames);
@@ -330,8 +332,9 @@ function LogForm() {
     getPendingSeed().then(setPendingSeed);
   }, []);
 
-  // Pending players (from the manager-editable list) not yet evaluated by two
-  // different coaches. `votes` is the distinct-coach count so far (0 or 1).
+  // Pending players (from the manager-editable list) not yet cleared. How many
+  // distinct coaches must weigh in depends on the category: 'refresh' players
+  // (already approved once, list being re-vetted) need 2, 'new' players need 1.
   const byPlayer = new Map<string, Evaluation[]>();
   for (const e of all ?? []) {
     const k = norm(e.player);
@@ -339,12 +342,18 @@ function LogForm() {
     if (list) list.push(e);
     else byPlayer.set(k, [e]);
   }
-  const pending = pendingSeed
+  const pendingAll = pendingSeed
     .map((p) => {
-      const entries = byPlayer.get(norm(p)) ?? [];
-      return { name: p, votes: new Set(entries.map((e) => e.coach)).size };
+      const entries = byPlayer.get(norm(p.name)) ?? [];
+      return {
+        ...p,
+        votes: new Set(entries.map((e) => e.coach)).size,
+        needed: p.category === "new" ? 1 : 2,
+      };
     })
-    .filter((p) => p.votes < 2);
+    .filter((p) => p.votes < p.needed);
+  const pendingRefresh = pendingAll.filter((p) => p.category === "refresh");
+  const pendingNew = pendingAll.filter((p) => p.category === "new");
 
   function pickPending(name: string) {
     setPlayer(name);
@@ -454,15 +463,15 @@ function LogForm() {
 
   return (
     <div className="card">
-      {pending.length > 0 && (
+      {pendingRefresh.length > 0 && (
         <div className="pending-box">
-          <h3>Pending evaluation ({pending.length})</h3>
+          <h3>Pending re-approval ({pendingRefresh.length})</h3>
           <p className="hint">
-            These players asked to be evaluated. Click a name to fill it in below —
-            it drops off once two different coaches have weighed in.
+            Previously approved — we&apos;re refreshing the list. Click a name to fill it
+            in below; it drops off once <strong>two different coaches</strong> have weighed in.
           </p>
           <div className="pending-chips">
-            {pending.map((p) => (
+            {pendingRefresh.map((p) => (
               <button
                 key={p.name}
                 type="button"
@@ -471,6 +480,28 @@ function LogForm() {
               >
                 {p.name}
                 {p.votes > 0 && <span className="chip-votes"> {p.votes}/2</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendingNew.length > 0 && (
+        <div className="pending-box pending-box-new">
+          <h3>Pending first evaluation ({pendingNew.length})</h3>
+          <p className="hint">
+            New requests — click a name to fill it in below; <strong>one coach&apos;s</strong>{" "}
+            evaluation clears it.
+          </p>
+          <div className="pending-chips">
+            {pendingNew.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                className="chip"
+                onClick={() => pickPending(p.name)}
+              >
+                {p.name}
               </button>
             ))}
           </div>
@@ -767,8 +798,9 @@ function Lookup() {
 function Admin() {
   const [passcode, setPasscode] = useState("");
   const [unlocked, setUnlocked] = useState(false);
-  const [list, setList] = useState<string[]>([]);
+  const [list, setList] = useState<PendingPlayer[]>([]);
   const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState<PendingCategory>("new");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -793,7 +825,7 @@ function Admin() {
     setErr(null);
     setBusy(true);
     try {
-      const res = await addPendingPlayer(newName, passcode);
+      const res = await addPendingPlayer(newName, passcode, newCategory);
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -844,7 +876,9 @@ function Admin() {
       <h3 style={{ margin: "0 0 0.25rem" }}>Pending evaluation list ({list.length})</h3>
       <p className="hint">
         Add players who asked to be evaluated. They appear as clickable chips on
-        the Log tab and drop off once two different coaches log a call.
+        the Log tab. <strong>Re-approval</strong> players (already approved once)
+        clear after two coaches weigh in; <strong>first evaluation</strong> players
+        clear after one.
       </p>
 
       <label>Add a player</label>
@@ -863,6 +897,22 @@ function Admin() {
           Add
         </button>
       </div>
+      <div className="outcome-list" style={{ marginTop: "0.5rem" }}>
+        <button
+          type="button"
+          className={`outcome-btn ${newCategory === "new" ? "sel-asked" : ""}`}
+          onClick={() => setNewCategory("new")}
+        >
+          First evaluation — clears after 1 coach
+        </button>
+        <button
+          type="button"
+          className={`outcome-btn ${newCategory === "refresh" ? "sel-asked" : ""}`}
+          onClick={() => setNewCategory("refresh")}
+        >
+          Re-approval — clears after 2 coaches
+        </button>
+      </div>
 
       {err && <div className="msg err">{err}</div>}
 
@@ -870,15 +920,20 @@ function Admin() {
         {list.length === 0 ? (
           <p className="hint">The list is empty.</p>
         ) : (
-          list.map((name) => (
-            <div key={name} className="admin-row">
-              <span>{name}</span>
+          list.map((p) => (
+            <div key={p.name} className="admin-row">
+              <span>
+                {p.name}{" "}
+                <span className={`admin-cat ${p.category}`}>
+                  {p.category === "new" ? "first eval · 1 coach" : "re-approval · 2 coaches"}
+                </span>
+              </span>
               <button
                 type="button"
                 className="admin-remove"
-                onClick={() => remove(name)}
+                onClick={() => remove(p.name)}
                 disabled={busy}
-                aria-label={`Remove ${name}`}
+                aria-label={`Remove ${p.name}`}
               >
                 Remove
               </button>
