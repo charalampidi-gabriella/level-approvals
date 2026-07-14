@@ -161,7 +161,15 @@ function groupEntries(list: Evaluation[]): EntryGroup[] {
   return groups;
 }
 
-function EntryLine({ g, showPlayer }: { g: EntryGroup; showPlayer?: boolean }) {
+function EntryLine({
+  g,
+  showPlayer,
+  secondEvalPending,
+}: {
+  g: EntryGroup;
+  showPlayer?: boolean;
+  secondEvalPending?: boolean;
+}) {
   return (
     <div className="entry">
       <div className="top">
@@ -179,6 +187,9 @@ function EntryLine({ g, showPlayer }: { g: EntryGroup; showPlayer?: boolean }) {
               {o}
             </span>
           ))}
+          {secondEvalPending && (
+            <span className="badge-2nd">2nd evaluation pending</span>
+          )}
         </span>
         <span className="date">{fmt(g.date)}</span>
       </div>
@@ -491,7 +502,8 @@ function LogForm() {
           <h3>Pending first evaluation ({pendingNew.length})</h3>
           <p className="hint">
             New requests — click a name to fill it in below; <strong>one coach&apos;s</strong>{" "}
-            evaluation clears it.
+            evaluation clears it. We&apos;re raising the bar, so if you&apos;re unsure,
+            it&apos;s fine to approve them only for 4.0–4.5.
           </p>
           <div className="pending-chips">
             {pendingNew.map((p) => (
@@ -696,10 +708,12 @@ function Lookup() {
   const [name, setName] = useState("");
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
+  const [pendingSeed, setPendingSeed] = useState<PendingPlayer[]>([]);
 
   useEffect(() => {
     getAllEntries().then(setAll);
     getPlayerNames().then(setNames);
+    getPendingSeed().then(setPendingSeed);
   }, []);
 
   // Group the loaded feed by normalized player name so we can derive who is
@@ -716,6 +730,15 @@ function Lookup() {
   const disagreements: string[] = [];
   for (const entries of byPlayer.values()) {
     if (hasDisagreement(entries)) disagreements.push(entries[0].player);
+  }
+
+  // Re-approval players (need 2 coaches) who have exactly one evaluation so far —
+  // still waiting on a second. Keyed by normalized name.
+  const awaiting2nd = new Set<string>();
+  for (const p of pendingSeed) {
+    if (p.category !== "refresh") continue;
+    const votes = new Set((byPlayer.get(norm(p.name)) ?? []).map((e) => e.coach)).size;
+    if (votes === 1) awaiting2nd.add(norm(p.name));
   }
 
   // Filter the already-loaded feed in place — no server round-trip.
@@ -786,7 +809,14 @@ function Lookup() {
               {q ? "No entries match that name." : "No entries logged yet."}
             </p>
           ) : (
-            filteredGroups.map((g) => <EntryLine key={g.id} g={g} showPlayer />)
+            filteredGroups.map((g) => (
+              <EntryLine
+                key={g.id}
+                g={g}
+                showPlayer
+                secondEvalPending={awaiting2nd.has(norm(g.player))}
+              />
+            ))
           )}
         </>
       )}
