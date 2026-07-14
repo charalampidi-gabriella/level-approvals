@@ -72,6 +72,7 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 const SET_475 = new Set(LEVEL_475.map(norm));
 const is475 = (name: string) => SET_475.has(norm(name));
 const Badge475 = () => <span className="badge-475">4.5–5.0</span>;
+const BadgeUstaC = () => <span className="badge-usta">USTA 4.5C</span>;
 
 // Gated levels — a player is "in disagreement" when two different coaches land
 // on opposite sides (approved vs denied) of the same gated level.
@@ -165,10 +166,12 @@ function EntryLine({
   g,
   showPlayer,
   secondEvalPending,
+  ustaC,
 }: {
   g: EntryGroup;
   showPlayer?: boolean;
   secondEvalPending?: boolean;
+  ustaC?: boolean;
 }) {
   return (
     <div className="entry">
@@ -178,6 +181,7 @@ function EntryLine({
             <>
               <span className="player-name">{g.player}</span>
               {is475(g.player) && <Badge475 />}
+              {ustaC && <BadgeUstaC />}
               <span className="player-name"> — </span>
             </>
           )}
@@ -354,6 +358,7 @@ function LogForm() {
     else byPlayer.set(k, [e]);
   }
   const pendingAll = pendingSeed
+    .filter((p) => p.category !== "computer") // computer-rated players are pre-approved, never pending
     .map((p) => {
       const entries = byPlayer.get(norm(p.name)) ?? [];
       return {
@@ -365,6 +370,11 @@ function LogForm() {
     .filter((p) => p.votes < p.needed);
   const pendingRefresh = pendingAll.filter((p) => p.category === "refresh");
   const pendingNew = pendingAll.filter((p) => p.category === "new");
+
+  // USTA computer-rated 4.5 players — for the "USTA 4.5C" badge in history.
+  const ustaSet = new Set(
+    pendingSeed.filter((p) => p.category === "computer").map((p) => norm(p.name))
+  );
 
   function pickPending(name: string) {
     setPlayer(name);
@@ -545,7 +555,8 @@ function LogForm() {
         return (
           <div className="history-box">
             <h3>
-              {player.trim()} {is475(player) && <Badge475 />} already has {groups.length}{" "}
+              {player.trim()} {is475(player) && <Badge475 />}
+              {ustaSet.has(norm(player)) && <BadgeUstaC />} already has {groups.length}{" "}
               {groups.length === 1 ? "entry" : "entries"}
             </h3>
             <p className="hint">
@@ -741,6 +752,11 @@ function Lookup() {
     if (votes === 1) awaiting2nd.add(norm(p.name));
   }
 
+  // USTA computer-rated 4.5 players — carry the "USTA 4.5C" badge.
+  const ustaSet = new Set(
+    pendingSeed.filter((p) => p.category === "computer").map((p) => norm(p.name))
+  );
+
   // Filter the already-loaded feed in place — no server round-trip.
   const q = name.trim().toLowerCase();
   const filtered = all
@@ -796,7 +812,8 @@ function Lookup() {
         <>
           <h3 style={{ marginTop: "1.25rem" }}>
             {q ? `Results for “${name.trim()}”` : "All entries"}{" "}
-            {q && is475(name) && <Badge475 />}{" "}
+            {q && is475(name) && <Badge475 />}
+            {q && ustaSet.has(norm(name)) && <BadgeUstaC />}{" "}
             {filteredGroups.length > 0 && `(${filteredGroups.length})`}
           </h3>
           {filteredDisagrees && (
@@ -815,6 +832,7 @@ function Lookup() {
                 g={g}
                 showPlayer
                 secondEvalPending={awaiting2nd.has(norm(g.player))}
+                ustaC={ustaSet.has(norm(g.player))}
               />
             ))
           )}
@@ -908,7 +926,8 @@ function Admin() {
         Add players who asked to be evaluated. They appear as clickable chips on
         the Log tab. <strong>Re-approval</strong> players (already approved once)
         clear after two coaches weigh in; <strong>first evaluation</strong> players
-        clear after one.
+        clear after one. <strong>4.5 computer rating</strong> players are approved
+        for 4.5 automatically (screenshot provided) and get a USTA&nbsp;4.5C badge.
       </p>
 
       <label>Add a player</label>
@@ -942,6 +961,13 @@ function Admin() {
         >
           Re-approval — clears after 2 coaches
         </button>
+        <button
+          type="button"
+          className={`outcome-btn ${newCategory === "computer" ? "sel-asked" : ""}`}
+          onClick={() => setNewCategory("computer")}
+        >
+          4.5 computer rating — auto-approve + USTA 4.5C badge
+        </button>
       </div>
 
       {err && <div className="msg err">{err}</div>}
@@ -955,7 +981,11 @@ function Admin() {
               <span>
                 {p.name}{" "}
                 <span className={`admin-cat ${p.category}`}>
-                  {p.category === "new" ? "first eval · 1 coach" : "re-approval · 2 coaches"}
+                  {p.category === "new"
+                    ? "first eval · 1 coach"
+                    : p.category === "computer"
+                    ? "USTA 4.5C · auto-approved"
+                    : "re-approval · 2 coaches"}
                 </span>
               </span>
               <button

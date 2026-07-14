@@ -191,6 +191,20 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   white-space: nowrap;
 }
 
+.badge-usta {
+  display: inline-block;
+  margin: 0 0.15rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .badge-475 {
   display: inline-block;
   margin: 0 0.15rem;
@@ -299,6 +313,7 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   white-space: nowrap;
 }
 .admin-cat.new { border-color: var(--green); color: #4a6b00; }
+.admin-cat.computer { border-color: var(--navy); color: var(--navy); }
 
 .admin-add { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
 .admin-add input { flex: 1; }

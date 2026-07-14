@@ -202,8 +202,15 @@ export async function getConfig() {
 
 // 'refresh': previously-approved players being re-vetted — clears on 2 coaches.
 // 'new': first-time requests — clears on 1 coach.
-export type PendingCategory = "refresh" | "new";
+// 'computer': USTA computer-rated 4.5 (screenshot provided) — auto-approved on
+//   add, never pending; carries a "USTA 4.5C" badge.
+export type PendingCategory = "refresh" | "new" | "computer";
 export type PendingPlayer = { name: string; category: PendingCategory };
+
+function toCategory(v: unknown): PendingCategory {
+  const s = String(v);
+  return s === "new" || s === "computer" ? s : "refresh";
+}
 
 /** Pending-evaluation list with categories, alphabetical. Public read. */
 export async function getPendingSeed(): Promise<PendingPlayer[]> {
@@ -213,7 +220,7 @@ export async function getPendingSeed(): Promise<PendingPlayer[]> {
   );
   return res.rows.map((r) => ({
     name: String((r as Row).name),
-    category: String((r as Row).category) === "new" ? "new" : "refresh",
+    category: toCategory((r as Row).category),
   }));
 }
 
@@ -234,6 +241,10 @@ export async function adminListPending(passcode: string): Promise<AdminResult> {
   return { ok: true, pending: await getPendingSeed() };
 }
 
+// Coach label stamped on the auto-generated 4.5 approval for computer-rated
+// players, so the feed shows who "made" the call.
+const COMPUTER_COACH = "Computer rating";
+
 export async function addPendingPlayer(
   name: string,
   passcode: string,
@@ -242,15 +253,43 @@ export async function addPendingPlayer(
   if (!passcodeOk(passcode)) return { ok: false, error: "Wrong passcode." };
   const clean = name.trim();
   if (!clean) return { ok: false, error: "Enter a name." };
-  const cat: PendingCategory = category === "new" ? "new" : "refresh";
+  const cat = toCategory(category);
+  const player_norm = normalizeName(clean);
   await ensureSchema();
   // Upsert so re-adding an existing name just moves it to the chosen category.
   await db().execute({
     sql: `INSERT INTO pending_players (name, name_norm, created_at, category)
           VALUES (?, ?, ?, ?)
           ON CONFLICT(name_norm) DO UPDATE SET category = excluded.category`,
-    args: [clean, normalizeName(clean), new Date().toISOString(), cat],
+    args: [clean, player_norm, new Date().toISOString(), cat],
   });
+
+  // Computer-rated players are approved on the spot: auto-log a 4.5 approval
+  // (once — don't duplicate on re-add). Direct insert, so no notification email.
+  if (cat === "computer") {
+    const exists = await db().execute({
+      sql: `SELECT 1 FROM evaluations
+            WHERE player_norm = ? AND coach = ? AND verdict = 'Approved for 4.5'`,
+      args: [player_norm, COMPUTER_COACH],
+    });
+    if (exists.rows.length === 0) {
+      await db().execute({
+        sql: `INSERT INTO evaluations
+                (id, created_at, player, player_norm, level, verdict, coach, note, status,
+                 attended_level, correct_level)
+              VALUES (?, ?, ?, ?, '', 'Approved for 4.5', ?, ?, 'active', '', '')`,
+        args: [
+          randomUUID(),
+          new Date().toISOString(),
+          clean,
+          player_norm,
+          COMPUTER_COACH,
+          "USTA 4.5 computer rating (screenshot provided).",
+        ],
+      });
+    }
+  }
+
   return { ok: true, pending: await getPendingSeed() };
 }
 
