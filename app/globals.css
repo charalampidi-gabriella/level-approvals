@@ -275,6 +275,18 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .chip:hover { background: var(--blue); color: #fff; }
 .chip-votes { font-weight: 700; opacity: 0.65; font-size: 0.78rem; }
 
+.goodtogo-box {
+  border: 1px solid var(--green);
+  background: #f6fbe6;
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+.goodtogo-box h3 { margin: 0; font-size: 0.95rem; color: #3f5a00; }
+.goodtogo-box .hint { margin-top: 0.35rem; }
+.chip.good { border-color: var(--green); }
+.chip.good:hover { background: var(--green); color: #1a2e00; }
+
 .disagree-box {
   border: 1px solid #f4b400;
   background: #fff8e6;

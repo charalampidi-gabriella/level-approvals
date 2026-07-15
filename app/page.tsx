@@ -757,6 +757,20 @@ function Lookup() {
     pendingSeed.filter((p) => p.category === "computer").map((p) => norm(p.name))
   );
 
+  // "Good to go" = pending players who reached their required number of distinct
+  // coaches approving them for 4.5 (2 for re-approval, 1 for first-evaluation).
+  const goodToGo: string[] = [];
+  for (const p of pendingSeed) {
+    if (p.category === "computer") continue; // auto-approved, tracked separately
+    const needed = p.category === "new" ? 1 : 2;
+    const approvers = new Set(
+      (byPlayer.get(norm(p.name)) ?? [])
+        .filter((e) => e.outcome === "Approved for 4.5")
+        .map((e) => e.coach)
+    );
+    if (approvers.size >= needed) goodToGo.push(p.name);
+  }
+
   // Filter the already-loaded feed in place — no server round-trip.
   const q = name.trim().toLowerCase();
   const filtered = all
@@ -778,6 +792,28 @@ function Lookup() {
 
   return (
     <div className="card">
+      {goodToGo.length > 0 && (
+        <div className="goodtogo-box">
+          <h3>✅ Good to go ({goodToGo.length})</h3>
+          <p className="hint">
+            Reached the required 4.5 approvals — two coaches for re-approval
+            players, one for first-evaluation. Click a name to see the entries.
+          </p>
+          <div className="pending-chips">
+            {goodToGo.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className="chip good"
+                onClick={() => setName(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {disagreements.length > 0 && (
         <div className="disagree-box">
           <h3>⚠ Coaches disagree ({disagreements.length})</h3>
