@@ -19,6 +19,9 @@ import {
   adminListPending,
   addPendingPlayer,
   removePendingPlayer,
+  getProcessed,
+  markProcessed,
+  unmarkProcessed,
   type Evaluation,
   type PendingPlayer,
   type PendingCategory,
@@ -720,12 +723,31 @@ function Lookup() {
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
   const [pendingSeed, setPendingSeed] = useState<PendingPlayer[]>([]);
+  const [processed, setProcessed] = useState<string[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     getAllEntries().then(setAll);
     getPlayerNames().then(setNames);
     getPendingSeed().then(setPendingSeed);
+    getProcessed().then(setProcessed);
   }, []);
+
+  const processedSet = new Set(processed.map(norm));
+
+  function onDropDone(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const dropped = e.dataTransfer.getData("text/plain");
+    if (!dropped) return;
+    if (
+      window.confirm(
+        `Are you sure this is done for ${dropped}?\n\n(account created, rating adjusted, email replied)`
+      )
+    ) {
+      markProcessed(dropped).then(setProcessed);
+    }
+  }
 
   // Group the loaded feed by normalized player name so we can derive who is
   // in disagreement — all client-side, no extra calls.
@@ -772,6 +794,8 @@ function Lookup() {
     ).size;
     if (decided >= needed && !hasDisagreement(entries)) goodToGo.push(p.name);
   }
+  // Players still awaiting follow-up (not yet dragged to the "done" box).
+  const goodToGoOpen = goodToGo.filter((n) => !processedSet.has(norm(n)));
 
   // Filter the already-loaded feed in place — no server round-trip.
   const q = name.trim().toLowerCase();
@@ -794,26 +818,69 @@ function Lookup() {
 
   return (
     <div className="card">
-      {goodToGo.length > 0 && (
+      {goodToGoOpen.length > 0 && (
         <div className="goodtogo-box">
-          <h3>✅ Evaluation completed ({goodToGo.length})</h3>
+          <h3>✅ Evaluation completed ({goodToGoOpen.length})</h3>
           <p className="hint">
             Final evaluation reached — the required coaches have made their call
-            (approved or denied), with no open disagreement. Two coaches for
-            re-approval players, one for first-evaluation. Click a name to see it.
+            (approved or denied), with no open disagreement. Click a name to see
+            it, or <strong>drag it to the box below</strong> once follow-up is done.
           </p>
           <div className="pending-chips">
-            {goodToGo.map((p) => (
+            {goodToGoOpen.map((p) => (
               <button
                 key={p}
                 type="button"
-                className="chip good"
+                className="chip good draggable"
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData("text/plain", p)}
                 onClick={() => setName(p)}
               >
                 {p}
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {(goodToGoOpen.length > 0 || processed.length > 0) && (
+        <div
+          className={`done-box ${dragOver ? "dragover" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDropDone}
+        >
+          <h3>🏁 Account created · rating adjusted · email replied ({processed.length})</h3>
+          <p className="hint">
+            Drag a name from “Evaluation completed” here once all three are done.
+          </p>
+          {processed.length > 0 && (
+            <div className="pending-chips">
+              {processed.map((p) => (
+                <span key={p} className="chip done-chip">
+                  <button
+                    type="button"
+                    className="done-name"
+                    onClick={() => setName(p)}
+                  >
+                    {p}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-undo"
+                    title={`Move ${p} back`}
+                    aria-label={`Move ${p} back`}
+                    onClick={() => unmarkProcessed(p).then(setProcessed)}
+                  >
+                    ↩
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

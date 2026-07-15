@@ -286,6 +286,48 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .goodtogo-box .hint { margin-top: 0.35rem; }
 .chip.good { border-color: var(--green); }
 .chip.good:hover { background: var(--green); color: #1a2e00; }
+.chip.draggable { cursor: grab; }
+.chip.draggable:active { cursor: grabbing; }
+
+.done-box {
+  border: 2px dashed var(--blue);
+  background: #eef7fa;
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1rem;
+  transition: background 0.12s, border-color 0.12s;
+}
+.done-box.dragover { border-style: solid; background: #d7edf4; }
+.done-box h3 { margin: 0; font-size: 0.95rem; color: var(--navy); }
+.done-box .hint { margin-top: 0.35rem; }
+.done-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.6rem;
+  border: 1px solid var(--navy);
+  background: var(--navy);
+  border-radius: 999px;
+}
+.done-name {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.chip-undo {
+  background: transparent;
+  border: none;
+  color: #cfe3ec;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+}
+.chip-undo:hover { color: #fff; }
 
 .disagree-box {
   border: 1px solid #f4b400;

@@ -305,3 +305,37 @@ export async function removePendingPlayer(
   });
   return { ok: true, pending: await getPendingSeed() };
 }
+
+// ---- Fully-processed players (account created, rating adjusted, email replied) ----
+
+/** Names marked fully processed, alphabetical. */
+export async function getProcessed(): Promise<string[]> {
+  await ensureSchema();
+  const res = await db().execute(
+    `SELECT name FROM processed_players ORDER BY name COLLATE NOCASE`
+  );
+  return res.rows.map((r) => String((r as Row).name));
+}
+
+/** Mark a player fully processed (confirmed in the UI). Returns the updated list. */
+export async function markProcessed(name: string): Promise<string[]> {
+  const clean = name.trim();
+  if (!clean) return getProcessed();
+  await ensureSchema();
+  await db().execute({
+    sql: `INSERT OR IGNORE INTO processed_players (name, name_norm, created_at)
+          VALUES (?, ?, ?)`,
+    args: [clean, normalizeName(clean), new Date().toISOString()],
+  });
+  return getProcessed();
+}
+
+/** Move a player back out of the processed list (undo a mistaken drop). */
+export async function unmarkProcessed(name: string): Promise<string[]> {
+  await ensureSchema();
+  await db().execute({
+    sql: `DELETE FROM processed_players WHERE name_norm = ?`,
+    args: [normalizeName(name)],
+  });
+  return getProcessed();
+}

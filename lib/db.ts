@@ -76,6 +76,16 @@ export function ensureSchema(): Promise<void> {
           value TEXT NOT NULL
         )
       `);
+      // Players whose post-evaluation follow-up is fully done (account created,
+      // rating adjusted, email replied). Managers drag them here from the
+      // "Evaluation completed" list.
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS processed_players (
+          name       TEXT NOT NULL,
+          name_norm  TEXT PRIMARY KEY,
+          created_at TEXT NOT NULL
+        )
+      `);
       // Seed the pending roster from config exactly once, ever. Guarded by a
       // meta flag so a manager deleting everyone doesn't get it re-seeded on the
       // next cold start.
