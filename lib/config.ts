@@ -128,17 +128,17 @@ export const OUTCOMES = [
   "Approved for 4.5",
   "Denied for 4.0–4.5",
   "Denied for 4.5",
-  "Showed up at wrong class",
 ] as const;
 
 export type Outcome = (typeof OUTCOMES)[number];
 
-// Feedback is mandatory when a coach denies or flags a wrong-class placement.
+// Feedback is mandatory when a coach denies.
 export function feedbackRequired(outcome: string) {
-  return outcome.startsWith("Denied") || outcome === "Showed up at wrong class";
+  return outcome.startsWith("Denied");
 }
 
-// Wrong-class entries also capture which level they attended vs. should be in.
+// "Showed up at wrong class" was retired as a logging option, but the helpers
+// stay so historical entries still render (attended-vs-correct level line).
 export const WRONG_CLASS = "Showed up at wrong class";
 export function isWrongClass(outcome: string) {
   return outcome === WRONG_CLASS;
