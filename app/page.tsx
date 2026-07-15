@@ -19,12 +19,14 @@ import {
   adminListPending,
   addPendingPlayer,
   removePendingPlayer,
-  getProcessed,
-  markProcessed,
-  unmarkProcessed,
+  getFollowups,
+  setFollowup,
+  clearFollowup,
   type Evaluation,
   type PendingPlayer,
   type PendingCategory,
+  type Followup,
+  type FollowupStage,
 } from "./actions";
 
 type Tab = "log" | "lookup" | "admin";
@@ -723,21 +725,32 @@ function Lookup() {
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
   const [pendingSeed, setPendingSeed] = useState<PendingPlayer[]>([]);
-  const [processed, setProcessed] = useState<string[]>([]);
-  const [dragOver, setDragOver] = useState(false);
+  const [followups, setFollowups] = useState<Followup[]>([]);
+  const [dragOverBox, setDragOverBox] = useState<FollowupStage | null>(null);
 
   useEffect(() => {
     getAllEntries().then(setAll);
     getPlayerNames().then(setNames);
     getPendingSeed().then(setPendingSeed);
-    getProcessed().then(setProcessed);
+    getFollowups().then(setFollowups);
   }, []);
 
-  const processedSet = new Set(processed.map(norm));
+  const followupSet = new Set(followups.map((f) => norm(f.name)));
+  const emailedList = followups.filter((f) => f.stage === "emailed").map((f) => f.name);
+  const doneList = followups.filter((f) => f.stage === "done").map((f) => f.name);
 
+  // Drop onto the "emailed to create account" box — no confirm (reversible).
+  function onDropEmailed(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOverBox(null);
+    const dropped = e.dataTransfer.getData("text/plain");
+    if (dropped) setFollowup(dropped, "emailed").then(setFollowups);
+  }
+
+  // Drop onto the "done" box — confirm since it's the final state.
   function onDropDone(e: React.DragEvent) {
     e.preventDefault();
-    setDragOver(false);
+    setDragOverBox(null);
     const dropped = e.dataTransfer.getData("text/plain");
     if (!dropped) return;
     if (
@@ -745,7 +758,17 @@ function Lookup() {
         `Are you sure this is done for ${dropped}?\n\n(account created, rating adjusted, email replied)`
       )
     ) {
-      markProcessed(dropped).then(setProcessed);
+      setFollowup(dropped, "done").then(setFollowups);
+    }
+  }
+
+  function moveToDone(p: string) {
+    if (
+      window.confirm(
+        `Are you sure this is done for ${p}?\n\n(account created, rating adjusted, email replied)`
+      )
+    ) {
+      setFollowup(p, "done").then(setFollowups);
     }
   }
 
@@ -794,8 +817,10 @@ function Lookup() {
     ).size;
     if (decided >= needed && !hasDisagreement(entries)) goodToGo.push(p.name);
   }
-  // Players still awaiting follow-up (not yet dragged to the "done" box).
-  const goodToGoOpen = goodToGo.filter((n) => !processedSet.has(norm(n)));
+  // Players still awaiting follow-up (not yet moved into an emailed/done box).
+  const goodToGoOpen = goodToGo.filter((n) => !followupSet.has(norm(n)));
+  const hasFollowupContext =
+    goodToGoOpen.length > 0 || emailedList.length > 0 || doneList.length > 0;
 
   // Filter the already-loaded feed in place — no server round-trip.
   const q = name.trim().toLowerCase();
@@ -824,7 +849,7 @@ function Lookup() {
           <p className="hint">
             Final evaluation reached — the required coaches have made their call
             (approved or denied), with no open disagreement. Click a name to see
-            it, or <strong>drag it to the box below</strong> once follow-up is done.
+            it, or <strong>drag it to a box below</strong> as follow-up progresses.
           </p>
           <div className="pending-chips">
             {goodToGoOpen.map((p) => (
@@ -843,29 +868,82 @@ function Lookup() {
         </div>
       )}
 
-      {(goodToGoOpen.length > 0 || processed.length > 0) && (
+      {hasFollowupContext && (
         <div
-          className={`done-box ${dragOver ? "dragover" : ""}`}
+          className={`emailed-box ${dragOverBox === "emailed" ? "dragover" : ""}`}
           onDragOver={(e) => {
             e.preventDefault();
-            setDragOver(true);
+            setDragOverBox("emailed");
           }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDropDone}
+          onDragLeave={() => setDragOverBox(null)}
+          onDrop={onDropEmailed}
         >
-          <h3>🏁 Account created · rating adjusted · email replied ({processed.length})</h3>
+          <h3>📧 Emailed to create account ({emailedList.length})</h3>
           <p className="hint">
-            Drag a name from “Evaluation completed” here once all three are done.
+            Evaluation done, account not created yet — emailed asking them to create
+            one. Drag names here; drag to the box below (or hit ✓) once fully done.
           </p>
-          {processed.length > 0 && (
+          {emailedList.length > 0 && (
             <div className="pending-chips">
-              {processed.map((p) => (
-                <span key={p} className="chip done-chip">
+              {emailedList.map((p) => (
+                <span
+                  key={p}
+                  className="chip emailed-chip"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", p)}
+                >
+                  <button type="button" className="done-name" onClick={() => setName(p)}>
+                    {p}
+                  </button>
                   <button
                     type="button"
-                    className="done-name"
-                    onClick={() => setName(p)}
+                    className="chip-fwd"
+                    title={`Mark ${p} fully done`}
+                    aria-label={`Mark ${p} fully done`}
+                    onClick={() => moveToDone(p)}
                   >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-undo"
+                    title={`Move ${p} back to Evaluation completed`}
+                    aria-label={`Move ${p} back to Evaluation completed`}
+                    onClick={() => clearFollowup(p).then(setFollowups)}
+                  >
+                    ↩
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {hasFollowupContext && (
+        <div
+          className={`done-box ${dragOverBox === "done" ? "dragover" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverBox("done");
+          }}
+          onDragLeave={() => setDragOverBox(null)}
+          onDrop={onDropDone}
+        >
+          <h3>🏁 Account created · rating adjusted · email replied ({doneList.length})</h3>
+          <p className="hint">
+            Fully done. Drag a name here from either box above.
+          </p>
+          {doneList.length > 0 && (
+            <div className="pending-chips">
+              {doneList.map((p) => (
+                <span
+                  key={p}
+                  className="chip done-chip"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", p)}
+                >
+                  <button type="button" className="done-name" onClick={() => setName(p)}>
                     {p}
                   </button>
                   <button
@@ -873,7 +951,7 @@ function Lookup() {
                     className="chip-undo"
                     title={`Move ${p} back`}
                     aria-label={`Move ${p} back`}
-                    onClick={() => unmarkProcessed(p).then(setProcessed)}
+                    onClick={() => clearFollowup(p).then(setFollowups)}
                   >
                     ↩
                   </button>

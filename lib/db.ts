@@ -83,9 +83,18 @@ export function ensureSchema(): Promise<void> {
         CREATE TABLE IF NOT EXISTS processed_players (
           name       TEXT NOT NULL,
           name_norm  TEXT PRIMARY KEY,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          stage      TEXT NOT NULL DEFAULT 'done'
         )
       `);
+      // `stage` ('emailed' | 'done') added later; older rows meant fully done.
+      try {
+        await client.execute(
+          `ALTER TABLE processed_players ADD COLUMN stage TEXT NOT NULL DEFAULT 'done'`
+        );
+      } catch {
+        /* column already exists */
+      }
       // Seed the pending roster from config exactly once, ever. Guarded by a
       // meta flag so a manager deleting everyone doesn't get it re-seeded on the
       // next cold start.

@@ -306,36 +306,48 @@ export async function removePendingPlayer(
   return { ok: true, pending: await getPendingSeed() };
 }
 
-// ---- Fully-processed players (account created, rating adjusted, email replied) ----
+// ---- Post-evaluation follow-up stages ----
+// 'emailed': evaluation done, account not created, emailed asking them to make one.
+// 'done': account created, rating adjusted, email replied (fully complete).
+export type FollowupStage = "emailed" | "done";
+export type Followup = { name: string; stage: FollowupStage };
 
-/** Names marked fully processed, alphabetical. */
-export async function getProcessed(): Promise<string[]> {
+/** All players in a follow-up stage, alphabetical. Not in the table = still open. */
+export async function getFollowups(): Promise<Followup[]> {
   await ensureSchema();
   const res = await db().execute(
-    `SELECT name FROM processed_players ORDER BY name COLLATE NOCASE`
+    `SELECT name, stage FROM processed_players ORDER BY name COLLATE NOCASE`
   );
-  return res.rows.map((r) => String((r as Row).name));
+  return res.rows.map((r) => ({
+    name: String((r as Row).name),
+    stage: String((r as Row).stage) === "emailed" ? "emailed" : "done",
+  }));
 }
 
-/** Mark a player fully processed (confirmed in the UI). Returns the updated list. */
-export async function markProcessed(name: string): Promise<string[]> {
+/** Move a player to a follow-up stage (upsert). Returns the updated list. */
+export async function setFollowup(
+  name: string,
+  stage: FollowupStage
+): Promise<Followup[]> {
   const clean = name.trim();
-  if (!clean) return getProcessed();
+  if (!clean) return getFollowups();
+  const s: FollowupStage = stage === "emailed" ? "emailed" : "done";
   await ensureSchema();
   await db().execute({
-    sql: `INSERT OR IGNORE INTO processed_players (name, name_norm, created_at)
-          VALUES (?, ?, ?)`,
-    args: [clean, normalizeName(clean), new Date().toISOString()],
+    sql: `INSERT INTO processed_players (name, name_norm, created_at, stage)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(name_norm) DO UPDATE SET stage = excluded.stage`,
+    args: [clean, normalizeName(clean), new Date().toISOString(), s],
   });
-  return getProcessed();
+  return getFollowups();
 }
 
-/** Move a player back out of the processed list (undo a mistaken drop). */
-export async function unmarkProcessed(name: string): Promise<string[]> {
+/** Remove a player from follow-up entirely (back to Evaluation completed). */
+export async function clearFollowup(name: string): Promise<Followup[]> {
   await ensureSchema();
   await db().execute({
     sql: `DELETE FROM processed_players WHERE name_norm = ?`,
     args: [normalizeName(name)],
   });
-  return getProcessed();
+  return getFollowups();
 }

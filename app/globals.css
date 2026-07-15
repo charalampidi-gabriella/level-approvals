@@ -289,6 +289,41 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .chip.draggable { cursor: grab; }
 .chip.draggable:active { cursor: grabbing; }
 
+.emailed-box {
+  border: 2px dashed #d99a00;
+  background: #fff8e6;
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1rem;
+  transition: background 0.12s, border-color 0.12s;
+}
+.emailed-box.dragover { border-style: solid; background: #fdeec3; }
+.emailed-box h3 { margin: 0; font-size: 0.95rem; color: #8a6d00; }
+.emailed-box .hint { margin-top: 0.35rem; }
+.emailed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.6rem;
+  border: 1px solid #d99a00;
+  background: #fbe8b0;
+  border-radius: 999px;
+}
+.emailed-chip .done-name { color: #6b5300; }
+.emailed-chip .chip-undo { color: #a07b1a; }
+.emailed-chip .chip-undo:hover { color: #6b5300; }
+.chip-fwd {
+  background: transparent;
+  border: none;
+  color: #2e7d00;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 0.15rem;
+}
+.chip-fwd:hover { color: #1a4d00; }
+
 .done-box {
   border: 2px dashed var(--blue);
   background: #eef7fa;
