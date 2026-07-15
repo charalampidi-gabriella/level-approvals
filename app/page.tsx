@@ -757,9 +757,9 @@ function Lookup() {
     pendingSeed.filter((p) => p.category === "computer").map((p) => norm(p.name))
   );
 
-  // "Good to go" = pending players with a *final* evaluation: the required number
-  // of distinct coaches have made a call — approved OR denied — and there's no
-  // open disagreement. A settled denial counts as final too, not just approvals.
+  // "Evaluation completed" = pending players with a *final* evaluation: the
+  // required number of distinct coaches have made a call — approved OR denied —
+  // and there's no open disagreement. A settled denial counts as final too.
   const goodToGo: string[] = [];
   for (const p of pendingSeed) {
     if (p.category === "computer") continue; // auto-approved, tracked separately
@@ -796,7 +796,7 @@ function Lookup() {
     <div className="card">
       {goodToGo.length > 0 && (
         <div className="goodtogo-box">
-          <h3>✅ Good to go ({goodToGo.length})</h3>
+          <h3>✅ Evaluation completed ({goodToGo.length})</h3>
           <p className="hint">
             Final evaluation reached — the required coaches have made their call
             (approved or denied), with no open disagreement. Two coaches for
