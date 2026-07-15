@@ -95,6 +95,16 @@ export function ensureSchema(): Promise<void> {
       } catch {
         /* column already exists */
       }
+      // Manager's final verdict resolving a coach disagreement. Presence here
+      // clears the disagreement flag and moves the player to Evaluation completed.
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS resolutions (
+          name       TEXT NOT NULL,
+          name_norm  TEXT PRIMARY KEY,
+          verdict    TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `);
       // Seed the pending roster from config exactly once, ever. Guarded by a
       // meta flag so a manager deleting everyone doesn't get it re-seeded on the
       // next cold start.

@@ -351,3 +351,46 @@ export async function clearFollowup(name: string): Promise<Followup[]> {
   });
   return getFollowups();
 }
+
+// ---- Disagreement resolutions (manager's final verdict) ----
+
+export type Resolution = { name: string; verdict: string };
+
+/** Players with a recorded final verdict (resolves their coach disagreement). */
+export async function getResolutions(): Promise<Resolution[]> {
+  await ensureSchema();
+  const res = await db().execute(`SELECT name, verdict FROM resolutions`);
+  return res.rows.map((r) => ({
+    name: String((r as Row).name),
+    verdict: String((r as Row).verdict),
+  }));
+}
+
+/** Record the final verdict for a disagreed player. Returns the updated list. */
+export async function resolveDisagreement(
+  name: string,
+  verdict: string
+): Promise<Resolution[]> {
+  const clean = name.trim();
+  if (!clean) return getResolutions();
+  if (!OUTCOMES.includes(verdict as (typeof OUTCOMES)[number])) return getResolutions();
+  await ensureSchema();
+  await db().execute({
+    sql: `INSERT INTO resolutions (name, name_norm, verdict, created_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(name_norm) DO UPDATE SET verdict = excluded.verdict,
+                                               created_at = excluded.created_at`,
+    args: [clean, normalizeName(clean), verdict, new Date().toISOString()],
+  });
+  return getResolutions();
+}
+
+/** Undo a resolution (back to a disagreement). */
+export async function clearResolution(name: string): Promise<Resolution[]> {
+  await ensureSchema();
+  await db().execute({
+    sql: `DELETE FROM resolutions WHERE name_norm = ?`,
+    args: [normalizeName(name)],
+  });
+  return getResolutions();
+}

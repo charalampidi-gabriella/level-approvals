@@ -286,6 +286,56 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .goodtogo-box .hint { margin-top: 0.35rem; }
 .chip.good { border-color: var(--green); }
 .chip.good:hover { background: var(--green); color: #1a2e00; }
+.verdict-mini {
+  margin-left: 0.35rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.verdict-mini.approved { background: var(--green); color: #1a2e00; }
+.verdict-mini.notready { background: var(--danger); color: #fff; }
+.verdict-mini.misplaced { background: #f4b400; color: #4a3500; }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 68, 88, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+.modal {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.28);
+}
+.modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.modal-conflict {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--platinum);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  color: var(--navy);
+}
+.modal-conflict div { padding: 0.1rem 0; }
+.modal-verdicts { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.85rem; }
+.modal-cancel {
+  margin-top: 0.85rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.4rem;
+}
 .chip.draggable { cursor: grab; }
 .chip.draggable:active { cursor: grabbing; }
 

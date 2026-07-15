@@ -22,11 +22,14 @@ import {
   getFollowups,
   setFollowup,
   clearFollowup,
+  getResolutions,
+  resolveDisagreement,
   type Evaluation,
   type PendingPlayer,
   type PendingCategory,
   type Followup,
   type FollowupStage,
+  type Resolution,
 } from "./actions";
 
 type Tab = "log" | "lookup" | "admin";
@@ -727,15 +730,24 @@ function Lookup() {
   const [pendingSeed, setPendingSeed] = useState<PendingPlayer[]>([]);
   const [followups, setFollowups] = useState<Followup[]>([]);
   const [dragOverBox, setDragOverBox] = useState<FollowupStage | null>(null);
+  const [resolutions, setResolutions] = useState<Resolution[]>([]);
+  const [resolving, setResolving] = useState<string | null>(null);
 
   useEffect(() => {
     getAllEntries().then(setAll);
     getPlayerNames().then(setNames);
     getPendingSeed().then(setPendingSeed);
     getFollowups().then(setFollowups);
+    getResolutions().then(setResolutions);
   }, []);
 
   const followupSet = new Set(followups.map((f) => norm(f.name)));
+  const resolvedSet = new Set(resolutions.map((r) => norm(r.name)));
+
+  function resolve(name: string, verdict: string) {
+    resolveDisagreement(name, verdict).then(setResolutions);
+    setResolving(null);
+  }
   const emailedList = followups.filter((f) => f.stage === "emailed").map((f) => f.name);
   const doneList = followups.filter((f) => f.stage === "done").map((f) => f.name);
 
@@ -782,10 +794,13 @@ function Lookup() {
     else byPlayer.set(k, [e]);
   }
 
-  // Disagreements = any player (not just the emailed ones) with conflicting calls.
+  // Disagreements = any player with conflicting calls, minus those a manager has
+  // already resolved with a final verdict.
   const disagreements: string[] = [];
   for (const entries of byPlayer.values()) {
-    if (hasDisagreement(entries)) disagreements.push(entries[0].player);
+    if (hasDisagreement(entries) && !resolvedSet.has(norm(entries[0].player))) {
+      disagreements.push(entries[0].player);
+    }
   }
 
   // Re-approval players (need 2 coaches) who have exactly one evaluation so far —
@@ -817,6 +832,19 @@ function Lookup() {
     ).size;
     if (decided >= needed && !hasDisagreement(entries)) goodToGo.push(p.name);
   }
+  // Resolved disagreements are complete too — add any not already listed.
+  const inGoodToGo = new Set(goodToGo.map(norm));
+  for (const r of resolutions) {
+    if (!inGoodToGo.has(norm(r.name))) {
+      goodToGo.push(r.name);
+      inGoodToGo.add(norm(r.name));
+    }
+  }
+  goodToGo.sort((a, b) => a.localeCompare(b));
+
+  // Final-verdict lookup for the "Evaluation completed" chips (resolved players).
+  const resolvedVerdict = new Map(resolutions.map((r) => [norm(r.name), r.verdict]));
+
   // Players still awaiting follow-up (not yet moved into an emailed/done box).
   const goodToGoOpen = goodToGo.filter((n) => !followupSet.has(norm(n)));
   const hasFollowupContext =
@@ -852,18 +880,26 @@ function Lookup() {
             it, or <strong>drag it to a box below</strong> as follow-up progresses.
           </p>
           <div className="pending-chips">
-            {goodToGoOpen.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className="chip good draggable"
-                draggable
-                onDragStart={(e) => e.dataTransfer.setData("text/plain", p)}
-                onClick={() => setName(p)}
-              >
-                {p}
-              </button>
-            ))}
+            {goodToGoOpen.map((p) => {
+              const v = resolvedVerdict.get(norm(p));
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  className="chip good draggable"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", p)}
+                  onClick={() => setName(p)}
+                >
+                  {p}
+                  {v && (
+                    <span className={`verdict-mini ${outcomeClass(v)}`}>
+                      {v.replace("Approved for ", "✓ ").replace("Denied for ", "✗ ")}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -966,8 +1002,9 @@ function Lookup() {
         <div className="disagree-box">
           <h3>⚠ Coaches disagree ({disagreements.length})</h3>
           <p className="hint">
-            Two coaches landed on opposite sides for a gated level. Click a name
-            to see the entries and reconcile.
+            Two coaches landed on opposite sides for a gated level.{" "}
+            <strong>Click a name to set the final verdict</strong> and move it to
+            Evaluation completed.
           </p>
           <div className="pending-chips">
             {disagreements.map((p) => (
@@ -975,11 +1012,52 @@ function Lookup() {
                 key={p}
                 type="button"
                 className="chip warn"
-                onClick={() => setName(p)}
+                onClick={() => setResolving(p)}
               >
                 {p}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {resolving && (
+        <div className="modal-overlay" onClick={() => setResolving(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Final verdict — {resolving}</h3>
+            <p className="hint">
+              Coaches disagreed. Set the final call to resolve it and move the
+              player to Evaluation completed.
+            </p>
+            <div className="modal-conflict">
+              {[
+                ...new Set(
+                  (byPlayer.get(norm(resolving)) ?? [])
+                    .filter(
+                      (e) =>
+                        e.outcome.startsWith("Approved") || e.outcome.startsWith("Denied")
+                    )
+                    .map((e) => `${e.coach} — ${e.outcome}`)
+                ),
+              ].map((line) => (
+                <div key={line}>{line}</div>
+              ))}
+            </div>
+            <div className="modal-verdicts">
+              {OUTCOMES.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className={`outcome-btn sel-${outcomeClass(v)}`}
+                  onClick={() => resolve(resolving, v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <button className="modal-cancel" onClick={() => setResolving(null)}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
