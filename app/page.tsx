@@ -431,6 +431,13 @@ function LogForm() {
       });
       return;
     }
+    if (outcome === "Denied for 4.5" && !lowerLevelOutcome) {
+      setMsg({
+        kind: "err",
+        text: "Also pick a 4.0–4.5 evaluation — approved or not ready.",
+      });
+      return;
+    }
     if (feedbackIsRequired && !note.trim()) {
       setMsg({ kind: "err", text: "Feedback is required for denials and wrong-class entries." });
       return;
@@ -641,7 +648,7 @@ function LogForm() {
 
       {outcome === "Denied for 4.5" && (
         <div className="next-level">
-          <label>Evaluation for 4.0–4.5 (optional)</label>
+          <label>Evaluation for 4.0–4.5 (required)</label>
           <div className="outcome-list">
             <button
               type="button"
@@ -670,7 +677,7 @@ function LogForm() {
               Not ready for 4.0–4.5
             </button>
           </div>
-          <p className="hint">Optional — if they're not ready for 4.5, log whether they're cleared for 4.0–4.5.</p>
+          <p className="hint">Required — when denying 4.5, also log whether they're cleared for 4.0–4.5.</p>
         </div>
       )}
 
