@@ -437,6 +437,17 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   font-weight: 600;
 }
 
+.resolved-banner {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  background: #eafbd0;
+  border: 1px solid var(--green);
+  color: #2f4d00;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .pending-box-new { border-color: var(--green); background: #f6fbe6; }
 
 .admin-cat {

@@ -868,13 +868,22 @@ function Lookup() {
   // Collapse paired decisions into single rows for the feed.
   const filteredGroups = filtered ? groupEntries(filtered) : null;
 
-  // Flag the results when the searched player(s) have a coach disagreement.
+  // Flag the results when the searched player(s) have a coach disagreement that
+  // hasn't been resolved yet.
   const filteredDisagrees =
     q && filtered
-      ? [...new Set(filtered.map((e) => norm(e.player)))].some((k) =>
-          hasDisagreement(byPlayer.get(k) ?? [])
+      ? [...new Set(filtered.map((e) => norm(e.player)))].some(
+          (k) => hasDisagreement(byPlayer.get(k) ?? []) && !resolvedSet.has(k)
         )
       : false;
+
+  // If a searched player has a recorded final verdict, surface it.
+  const filteredResolution =
+    q && filtered
+      ? resolutions.find((r) =>
+          filtered.some((e) => norm(e.player) === norm(r.name))
+        ) ?? null
+      : null;
 
   return (
     <div className="card">
@@ -1085,6 +1094,12 @@ function Lookup() {
             {q && ustaSet.has(norm(name)) && <BadgeUstaC />}{" "}
             {filteredGroups.length > 0 && `(${filteredGroups.length})`}
           </h3>
+          {filteredResolution && (
+            <div className="resolved-banner">
+              ✓ Final verdict: <strong>{filteredResolution.verdict}</strong> — coaches
+              disagreed and this call was recorded.
+            </div>
+          )}
           {filteredDisagrees && (
             <div className="disagree-banner">
               ⚠ Coaches disagree on a gated level for this player — reconcile before acting.
