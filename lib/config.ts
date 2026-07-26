@@ -20,6 +20,7 @@ export const COACHES = [
   "Nolan",
   "Oleg",
   "Tim",
+  "Tom",
   "Val",
 ];
 
