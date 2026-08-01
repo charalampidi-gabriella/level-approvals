@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import {
   COACHES,
   OUTCOMES,
+  LOG_OUTCOMES,
+  WRONG_CLASS,
   LEVELS,
   LEVEL_475,
   feedbackRequired,
   isWrongClass,
-  type Outcome,
+  type LogOutcome,
 } from "@/lib/config";
 import {
   submitEntry,
@@ -165,7 +167,9 @@ function groupEntries(list: Evaluation[]): EntryGroup[] {
   }
   // Stable pill order per group (by the canonical OUTCOMES order).
   for (const g of groups) {
-    g.outcomes.sort((a, b) => OUTCOMES.indexOf(a as never) - OUTCOMES.indexOf(b as never));
+    g.outcomes.sort(
+      (a, b) => LOG_OUTCOMES.indexOf(a as never) - LOG_OUTCOMES.indexOf(b as never)
+    );
   }
   return groups;
 }
@@ -334,7 +338,7 @@ type LowerLevelOutcome = "" | "Approved for 4.0–4.5" | "Denied for 4.0–4.5";
 function LogForm() {
   const [coach, setCoach] = useState("");
   const [player, setPlayer] = useState("");
-  const [outcome, setOutcome] = useState<Outcome | "">("");
+  const [outcome, setOutcome] = useState<LogOutcome | "">("");
   const [nextLevelOutcome, setNextLevelOutcome] = useState<NextLevelOutcome>("");
   const [lowerLevelOutcome, setLowerLevelOutcome] = useState<LowerLevelOutcome>("");
   const [note, setNote] = useState("");
@@ -680,6 +684,33 @@ function LogForm() {
           <p className="hint">Required — when denying 4.5, also log whether they're cleared for 4.0–4.5.</p>
         </div>
       )}
+
+      <div className="wrong-class">
+        <label>Something else — player in the wrong class</label>
+        <div className="outcome-list">
+          <button
+            type="button"
+            className={`outcome-btn ${isWrongClass(outcome) ? "sel-misplaced" : ""}`}
+            onClick={() => {
+              const on = !isWrongClass(outcome);
+              setOutcome(on ? WRONG_CLASS : "");
+              setNextLevelOutcome("");
+              setLowerLevelOutcome("");
+              if (!on) {
+                setAttendedLevel("");
+                setCorrectLevel("");
+              }
+            }}
+          >
+            {WRONG_CLASS}
+          </button>
+        </div>
+        <p className="hint">
+          <strong>Not a 4.0–4.5 or 4.5 approval.</strong> Use this when a player turns up
+          in a class that isn&apos;t their level — e.g. a beginner in the 3.5 clinic. It
+          records the misplacement only, and never counts as an approval or a denial.
+        </p>
+      </div>
 
       {isWrongClass(outcome) && (
         <div className="levels">

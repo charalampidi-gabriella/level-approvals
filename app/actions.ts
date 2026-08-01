@@ -2,7 +2,14 @@
 
 import { randomUUID } from "crypto";
 import { db, ensureSchema, normalizeName } from "@/lib/db";
-import { COACHES, OUTCOMES, LEVELS, feedbackRequired, isWrongClass } from "@/lib/config";
+import {
+  COACHES,
+  OUTCOMES,
+  LOG_OUTCOMES,
+  LEVELS,
+  feedbackRequired,
+  isWrongClass,
+} from "@/lib/config";
 import { notifyNewEntry } from "@/lib/notify";
 
 export type Evaluation = {
@@ -41,7 +48,7 @@ function validate(
 ) {
   if (!player.trim()) return "Player name is required.";
   if (!COACHES.includes(coach)) return "Pick a valid coach.";
-  if (!OUTCOMES.includes(outcome as (typeof OUTCOMES)[number]))
+  if (!LOG_OUTCOMES.includes(outcome as (typeof LOG_OUTCOMES)[number]))
     return "Pick a valid entry type.";
   if (feedbackRequired(outcome) && !note.trim())
     return "Feedback is required for denials and wrong-class entries.";
