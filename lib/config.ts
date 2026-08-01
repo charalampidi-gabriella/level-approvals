@@ -13,6 +13,7 @@ export const COACHES = [
   "Geronimo",
   "Hemanshu",
   "James",
+  "Katie",
   "Kevin",
   "Mark",
   "Mateo",
@@ -133,14 +134,22 @@ export const OUTCOMES = [
 
 export type Outcome = (typeof OUTCOMES)[number];
 
-// Feedback is mandatory when a coach denies.
-export function feedbackRequired(outcome: string) {
-  return outcome.startsWith("Denied");
-}
-
-// "Showed up at wrong class" was retired as a logging option, but the helpers
-// stay so historical entries still render (attended-vs-correct level line).
+// A player turned up in a class that isn't their level (e.g. a beginner in the
+// 3.5 clinic). Deliberately NOT one of OUTCOMES: it is not a gated 4.0–4.5 /
+// 4.5 decision, never counts as an approval or denial, and is never offered as
+// a final verdict when coaches disagree.
 export const WRONG_CLASS = "Showed up at wrong class";
 export function isWrongClass(outcome: string) {
   return outcome === WRONG_CLASS;
+}
+
+// Everything a coach can log: the gated calls plus the misplacement note.
+// Use this for validating/ordering entries; use OUTCOMES where only the gated
+// approval decisions belong (verdicts, standings).
+export const LOG_OUTCOMES = [...OUTCOMES, WRONG_CLASS] as const;
+export type LogOutcome = (typeof LOG_OUTCOMES)[number];
+
+// Feedback is mandatory when a coach denies, or flags a wrong-class player.
+export function feedbackRequired(outcome: string) {
+  return outcome.startsWith("Denied") || isWrongClass(outcome);
 }
