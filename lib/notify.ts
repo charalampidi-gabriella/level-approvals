@@ -59,6 +59,7 @@ function buildHtml(entry: Evaluation): string {
     entry.attendedLevel ? row("Attended", entry.attendedLevel) : "",
     entry.correctLevel ? row("Should be in", entry.correctLevel) : "",
     row("Coach", entry.coach),
+    entry.confident ? row("Sole call", "100% certain — no second coach") : "",
     row("Logged", `${logged} CT`),
   ].join("");
 
@@ -124,6 +125,7 @@ export async function notifyNewEntry(entry: Evaluation): Promise<void> {
       entry.attendedLevel ? `Attended level: ${entry.attendedLevel}` : null,
       entry.correctLevel ? `Should be in: ${entry.correctLevel}` : null,
       `Coach: ${entry.coach}`,
+      entry.confident ? "Sole call: 100% certain — no second coach available" : null,
       entry.note ? `Feedback: ${entry.note}` : null,
       `Logged: ${new Date(entry.date).toLocaleString()}`,
     ]

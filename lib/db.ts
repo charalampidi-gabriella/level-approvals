@@ -31,16 +31,20 @@ export function ensureSchema(): Promise<void> {
           note           TEXT,
           status         TEXT NOT NULL DEFAULT 'active',
           attended_level TEXT NOT NULL DEFAULT '',
-          correct_level  TEXT NOT NULL DEFAULT ''
+          correct_level  TEXT NOT NULL DEFAULT '',
+          confident      INTEGER NOT NULL DEFAULT 0
         )
       `);
-      // Add columns for DBs created before wrong-class levels existed.
-      // SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
-      for (const col of ["attended_level", "correct_level"]) {
+      // Add columns for DBs created before wrong-class levels / sole calls
+      // existed. SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the dup error.
+      const added: [string, string][] = [
+        ["attended_level", "TEXT NOT NULL DEFAULT ''"],
+        ["correct_level", "TEXT NOT NULL DEFAULT ''"],
+        ["confident", "INTEGER NOT NULL DEFAULT 0"],
+      ];
+      for (const [col, def] of added) {
         try {
-          await client.execute(
-            `ALTER TABLE evaluations ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`
-          );
+          await client.execute(`ALTER TABLE evaluations ADD COLUMN ${col} ${def}`);
         } catch {
           /* column already exists */
         }

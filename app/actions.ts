@@ -9,6 +9,7 @@ import {
   LEVELS,
   feedbackRequired,
   isWrongClass,
+  soleCallAllowed,
 } from "@/lib/config";
 import { notifyNewEntry } from "@/lib/notify";
 
@@ -21,6 +22,7 @@ export type Evaluation = {
   note: string;
   attendedLevel: string; // wrong-class only: level they showed up to
   correctLevel: string; // wrong-class only: level they should be in
+  confident: boolean; // sole call — 100% certain, no second coach available
 };
 
 type Row = Record<string, unknown>;
@@ -35,6 +37,7 @@ function toEval(r: Row): Evaluation {
     note: r.note == null ? "" : String(r.note),
     attendedLevel: r.attended_level == null ? "" : String(r.attended_level),
     correctLevel: r.correct_level == null ? "" : String(r.correct_level),
+    confident: Number(r.confident ?? 0) === 1,
   };
 }
 
@@ -44,7 +47,8 @@ function validate(
   coach: string,
   note: string,
   attendedLevel: string,
-  correctLevel: string
+  correctLevel: string,
+  confident: boolean
 ) {
   if (!player.trim()) return "Player name is required.";
   if (!COACHES.includes(coach)) return "Pick a valid coach.";
@@ -58,6 +62,9 @@ function validate(
     if (!LEVELS.includes(correctLevel as (typeof LEVELS)[number]))
       return "Pick the level they should be in.";
   }
+  // A sole call clears a player on one opinion, so it must carry its reasoning.
+  if (confident && !note.trim())
+    return "Feedback is required when you mark an entry as a sole call.";
   return null;
 }
 
@@ -71,15 +78,18 @@ export async function submitEntry(data: {
   note?: string;
   attendedLevel?: string;
   correctLevel?: string;
+  confident?: boolean;
 }): Promise<SubmitResult> {
   const player = data.player.trim();
   const { outcome, coach } = data;
   const note = (data.note ?? "").trim();
+  // Sole calls only apply to gated decisions, never to a wrong-class note.
+  const confident = !!data.confident && soleCallAllowed(outcome);
   // Levels only apply to wrong-class entries; ignore them otherwise.
   const attendedLevel = isWrongClass(outcome) ? (data.attendedLevel ?? "").trim() : "";
   const correctLevel = isWrongClass(outcome) ? (data.correctLevel ?? "").trim() : "";
 
-  const err = validate(player, outcome, coach, note, attendedLevel, correctLevel);
+  const err = validate(player, outcome, coach, note, attendedLevel, correctLevel, confident);
   if (err) return { ok: false, error: err };
 
   const id = randomUUID();
@@ -89,8 +99,8 @@ export async function submitEntry(data: {
   await db().execute({
     sql: `INSERT INTO evaluations
             (id, created_at, player, player_norm, level, verdict, coach, note, status,
-             attended_level, correct_level)
-          VALUES (?, ?, ?, ?, '', ?, ?, ?, 'active', ?, ?)`,
+             attended_level, correct_level, confident)
+          VALUES (?, ?, ?, ?, '', ?, ?, ?, 'active', ?, ?, ?)`,
     args: [
       id,
       createdAt,
@@ -101,6 +111,7 @@ export async function submitEntry(data: {
       note,
       attendedLevel,
       correctLevel,
+      confident ? 1 : 0,
     ],
   });
 
@@ -114,6 +125,7 @@ export async function submitEntry(data: {
     note,
     attendedLevel,
     correctLevel,
+    confident,
   });
 
   return { ok: true };

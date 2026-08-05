@@ -20,6 +20,7 @@ export const COACHES = [
   "Nick",
   "Nolan",
   "Oleg",
+  "Sid",
   "Tim",
   "Tom",
   "Val",
@@ -152,4 +153,14 @@ export type LogOutcome = (typeof LOG_OUTCOMES)[number];
 // Feedback is mandatory when a coach denies, or flags a wrong-class player.
 export function feedbackRequired(outcome: string) {
   return outcome.startsWith("Denied") || isWrongClass(outcome);
+}
+
+// A "sole call": the coach is 100% certain and no second coach can be found to
+// look at the player. Marking it lets that one evaluation clear a re-approval
+// player on its own, instead of the old workaround of re-logging the same call
+// under a second coach's name (which faked a second opinion in the history).
+// Only meaningful on gated approval/denial entries — never on wrong-class.
+export const SOLE_CALL_LABEL = "100% certain · sole call";
+export function soleCallAllowed(outcome: string) {
+  return !!outcome && !isWrongClass(outcome);
 }

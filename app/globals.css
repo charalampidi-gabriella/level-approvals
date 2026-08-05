@@ -203,6 +203,52 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   white-space: nowrap;
 }
 
+/* Entry cleared on one coach's evaluation because no second coach was
+   available and that coach was certain. */
+.badge-sole {
+  display: inline-block;
+  margin: 0.1rem 0 0.1rem 0.15rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: #eaf4f8;
+  border: 1px solid var(--blue, #2596b5);
+  color: #14586c;
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* The "no second coach available" opt-in on the log form. */
+.sole-call {
+  margin: 0.9rem 0 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fbfdfd;
+}
+.sole-call.on {
+  border-color: var(--blue, #2596b5);
+  background: #eaf4f8;
+}
+.sole-call .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+}
+.sole-call .check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--blue, #2596b5);
+  cursor: pointer;
+}
+.sole-call .hint { margin-top: 0.45rem; }
+
 .badge-usta {
   display: inline-block;
   margin: 0 0.15rem;

@@ -8,8 +8,10 @@ import {
   WRONG_CLASS,
   LEVELS,
   LEVEL_475,
+  SOLE_CALL_LABEL,
   feedbackRequired,
   isWrongClass,
+  soleCallAllowed,
   type LogOutcome,
 } from "@/lib/config";
 import {
@@ -83,6 +85,25 @@ const SET_475 = new Set(LEVEL_475.map(norm));
 const is475 = (name: string) => SET_475.has(norm(name));
 const Badge475 = () => <span className="badge-475">4.5–5.0</span>;
 const BadgeUstaC = () => <span className="badge-usta">USTA 4.5C</span>;
+const BadgeSoleCall = () => (
+  <span className="badge-sole" title="The coach was 100% certain and no second coach was available — this one evaluation clears the player.">
+    {SOLE_CALL_LABEL}
+  </span>
+);
+
+// A gated decision a coach marked as a sole call. Present = the player is
+// cleared on this one evaluation, without a second coach. Wrong-class notes
+// never count (they aren't approval decisions).
+function hasSoleCall(entries: Evaluation[]): boolean {
+  return entries.some((e) => e.confident && !isWrongClass(e.outcome));
+}
+
+// How many distinct coaches have weighed in, and whether that satisfies the
+// player's requirement — a sole call satisfies it on its own.
+function isCleared(entries: Evaluation[], needed: number): boolean {
+  const coaches = new Set(entries.map((e) => e.coach)).size;
+  return coaches >= needed || hasSoleCall(entries);
+}
 
 // Gated levels — a player is "in disagreement" when two different coaches land
 // on opposite sides (approved vs denied) of the same gated level.
@@ -130,6 +151,7 @@ type EntryGroup = {
   attendedLevel: string;
   correctLevel: string;
   outcomes: string[];
+  confident: boolean;
 };
 
 // Collapse the two rows of a paired decision into one entry. Entries are grouped
@@ -149,6 +171,7 @@ function groupEntries(list: Evaluation[]): EntryGroup[] {
       if (!match.outcomes.includes(e.outcome)) match.outcomes.push(e.outcome);
       if (e.attendedLevel) match.attendedLevel = e.attendedLevel;
       if (e.correctLevel) match.correctLevel = e.correctLevel;
+      if (e.confident) match.confident = true;
       if (t > new Date(match.date).getTime()) match.date = e.date; // show latest
     } else {
       const g: EntryGroup = {
@@ -160,6 +183,7 @@ function groupEntries(list: Evaluation[]): EntryGroup[] {
         attendedLevel: e.attendedLevel,
         correctLevel: e.correctLevel,
         outcomes: [e.outcome],
+        confident: e.confident,
       };
       groups.push(g);
       byKey.set(key, [...(byKey.get(key) ?? []), g]);
@@ -203,6 +227,7 @@ function EntryLine({
               {o}
             </span>
           ))}
+          {g.confident && <BadgeSoleCall />}
           {secondEvalPending && (
             <span className="badge-2nd">2nd evaluation pending</span>
           )}
@@ -344,6 +369,7 @@ function LogForm() {
   const [note, setNote] = useState("");
   const [attendedLevel, setAttendedLevel] = useState("");
   const [correctLevel, setCorrectLevel] = useState("");
+  const [confident, setConfident] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -373,13 +399,15 @@ function LogForm() {
     .filter((p) => p.category !== "computer") // computer-rated players are pre-approved, never pending
     .map((p) => {
       const entries = byPlayer.get(norm(p.name)) ?? [];
+      const needed = p.category === "new" ? 1 : 2;
       return {
         ...p,
         votes: new Set(entries.map((e) => e.coach)).size,
-        needed: p.category === "new" ? 1 : 2,
+        needed,
+        cleared: isCleared(entries, needed),
       };
     })
-    .filter((p) => p.votes < p.needed);
+    .filter((p) => !p.cleared);
   const pendingRefresh = pendingAll.filter((p) => p.category === "refresh");
   const pendingNew = pendingAll.filter((p) => p.category === "new");
 
@@ -411,6 +439,7 @@ function LogForm() {
     setNote("");
     setAttendedLevel("");
     setCorrectLevel("");
+    setConfident(false);
     setHistory(null);
   }
 
@@ -418,9 +447,15 @@ function LogForm() {
   // a 4.5 read when approving for 4.0–4.5, or a 4.0–4.5 read when denying 4.5.
   const companionOutcome: string = nextLevelOutcome || lowerLevelOutcome;
 
+  // A sole call is only offered on gated decisions; drop it if the coach
+  // switches to a wrong-class note.
+  const soleCallOffered = soleCallAllowed(outcome);
+  const isSoleCall = confident && soleCallOffered;
+
   const feedbackIsRequired =
     (!!outcome && feedbackRequired(outcome)) ||
-    (!!companionOutcome && feedbackRequired(companionOutcome));
+    (!!companionOutcome && feedbackRequired(companionOutcome)) ||
+    isSoleCall; // must justify clearing a player on one opinion
 
   async function onSubmit() {
     setMsg(null);
@@ -443,7 +478,12 @@ function LogForm() {
       return;
     }
     if (feedbackIsRequired && !note.trim()) {
-      setMsg({ kind: "err", text: "Feedback is required for denials and wrong-class entries." });
+      setMsg({
+        kind: "err",
+        text: isSoleCall
+          ? "Feedback is required when you mark an entry as a sole call."
+          : "Feedback is required for denials and wrong-class entries.",
+      });
       return;
     }
     if (isWrongClass(outcome) && (!attendedLevel || !correctLevel)) {
@@ -452,7 +492,15 @@ function LogForm() {
     }
     setBusy(true);
     try {
-      const res = await submitEntry({ player, outcome, coach, note, attendedLevel, correctLevel });
+      const res = await submitEntry({
+        player,
+        outcome,
+        coach,
+        note,
+        attendedLevel,
+        correctLevel,
+        confident: isSoleCall,
+      });
       if (!res.ok) {
         setMsg({ kind: "err", text: res.error });
         return;
@@ -463,6 +511,7 @@ function LogForm() {
           outcome: companionOutcome,
           coach,
           note,
+          confident: isSoleCall, // both halves of a paired call carry the flag
         });
         if (!res2.ok) {
           setMsg({
@@ -745,6 +794,27 @@ function LogForm() {
         </div>
       )}
 
+      {soleCallOffered && (
+        <div className={`sole-call ${confident ? "on" : ""}`}>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={confident}
+              onChange={(e) => setConfident(e.target.checked)}
+            />
+            <span>
+              I&apos;m <strong>100% certain</strong> and no second coach is available
+            </span>
+          </label>
+          <p className="hint">
+            Only tick this when a second coach genuinely can&apos;t be found. Your
+            evaluation alone then clears the player, and the entry is marked{" "}
+            <strong>{SOLE_CALL_LABEL}</strong> in the history so everyone knows one
+            coach made the call. Feedback becomes required.
+          </p>
+        </div>
+      )}
+
       <label>Feedback {feedbackIsRequired ? "(required)" : "(optional)"}</label>
       <textarea
         value={note}
@@ -842,12 +912,14 @@ function Lookup() {
   }
 
   // Re-approval players (need 2 coaches) who have exactly one evaluation so far —
-  // still waiting on a second. Keyed by normalized name.
+  // still waiting on a second. A sole call means no second one is coming, so
+  // those aren't flagged. Keyed by normalized name.
   const awaiting2nd = new Set<string>();
   for (const p of pendingSeed) {
     if (p.category !== "refresh") continue;
-    const votes = new Set((byPlayer.get(norm(p.name)) ?? []).map((e) => e.coach)).size;
-    if (votes === 1) awaiting2nd.add(norm(p.name));
+    const entries = byPlayer.get(norm(p.name)) ?? [];
+    const votes = new Set(entries.map((e) => e.coach)).size;
+    if (votes === 1 && !hasSoleCall(entries)) awaiting2nd.add(norm(p.name));
   }
 
   // USTA computer-rated 4.5 players — carry the "USTA 4.5C" badge.
@@ -857,18 +929,18 @@ function Lookup() {
 
   // "Evaluation completed" = pending players with a *final* evaluation: the
   // required number of distinct coaches have made a call — approved OR denied —
-  // and there's no open disagreement. A settled denial counts as final too.
+  // and there's no open disagreement. A settled denial counts as final too, and
+  // a sole call stands in for the missing second coach.
   const goodToGo: string[] = [];
   for (const p of pendingSeed) {
     if (p.category === "computer") continue; // auto-approved, tracked separately
     const needed = p.category === "new" ? 1 : 2;
     const entries = byPlayer.get(norm(p.name)) ?? [];
-    const decided = new Set(
-      entries
-        .filter((e) => e.outcome.startsWith("Approved") || e.outcome.startsWith("Denied"))
-        .map((e) => e.coach)
-    ).size;
-    if (decided >= needed && !hasDisagreement(entries)) goodToGo.push(p.name);
+    const decisions = entries.filter(
+      (e) => e.outcome.startsWith("Approved") || e.outcome.startsWith("Denied")
+    );
+    if (decisions.length === 0) continue;
+    if (isCleared(decisions, needed) && !hasDisagreement(entries)) goodToGo.push(p.name);
   }
   // Resolved disagreements are complete too — add any not already listed.
   const inGoodToGo = new Set(goodToGo.map(norm));
