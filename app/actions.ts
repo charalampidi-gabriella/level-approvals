@@ -328,8 +328,16 @@ export async function removePendingPlayer(
 // ---- Post-evaluation follow-up stages ----
 // 'emailed': evaluation done, account not created, emailed asking them to make one.
 // 'done': account created, rating adjusted, email replied (fully complete).
-export type FollowupStage = "emailed" | "done";
+// 'nodata': NOT a post-evaluation stage — a still-pending player nobody has
+//   enough to judge on, emailed asking them to attend more classes. Parks them
+//   out of the pending lists until a coach can actually make a call.
+export type FollowupStage = "emailed" | "done" | "nodata";
 export type Followup = { name: string; stage: FollowupStage };
+
+function toStage(v: unknown): FollowupStage {
+  const s = String(v);
+  return s === "emailed" || s === "nodata" ? s : "done";
+}
 
 /** All players in a follow-up stage, alphabetical. Not in the table = still open. */
 export async function getFollowups(): Promise<Followup[]> {
@@ -339,7 +347,7 @@ export async function getFollowups(): Promise<Followup[]> {
   );
   return res.rows.map((r) => ({
     name: String((r as Row).name),
-    stage: String((r as Row).stage) === "emailed" ? "emailed" : "done",
+    stage: toStage((r as Row).stage),
   }));
 }
 
@@ -350,7 +358,7 @@ export async function setFollowup(
 ): Promise<Followup[]> {
   const clean = name.trim();
   if (!clean) return getFollowups();
-  const s: FollowupStage = stage === "emailed" ? "emailed" : "done";
+  const s = toStage(stage);
   await ensureSchema();
   await db().execute({
     sql: `INSERT INTO processed_players (name, name_norm, created_at, stage)

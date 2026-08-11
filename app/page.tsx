@@ -378,12 +378,20 @@ function LogForm() {
   const [names, setNames] = useState<string[]>([]);
   const [all, setAll] = useState<Evaluation[] | null>(null);
   const [pendingSeed, setPendingSeed] = useState<PendingPlayer[]>([]);
+  const [followups, setFollowups] = useState<Followup[]>([]);
 
   useEffect(() => {
     getPlayerNames().then(setNames);
     getAllEntries().then(setAll);
     getPendingSeed().then(setPendingSeed);
+    getFollowups().then(setFollowups);
   }, []);
+
+  // Players parked as "not enough data" — they've been emailed to attend more
+  // classes, so they stay off the pending chips until they're back in play.
+  const nodataSet = new Set(
+    followups.filter((f) => f.stage === "nodata").map((f) => norm(f.name))
+  );
 
   // Pending players (from the manager-editable list) not yet cleared. How many
   // distinct coaches must weigh in depends on the category: 'refresh' players
@@ -397,6 +405,7 @@ function LogForm() {
   }
   const pendingAll = pendingSeed
     .filter((p) => p.category !== "computer") // computer-rated players are pre-approved, never pending
+    .filter((p) => !nodataSet.has(norm(p.name))) // parked: waiting on more classes
     .map((p) => {
       const entries = byPlayer.get(norm(p.name)) ?? [];
       const needed = p.category === "new" ? 1 : 2;
@@ -849,7 +858,12 @@ function Lookup() {
     getResolutions().then(setResolutions);
   }, []);
 
-  const followupSet = new Set(followups.map((f) => norm(f.name)));
+  // Only the post-evaluation stages hide a name from "Evaluation completed" —
+  // 'nodata' is a pending-side park, so a parked player who later gets evaluated
+  // still surfaces as completed.
+  const followupSet = new Set(
+    followups.filter((f) => f.stage !== "nodata").map((f) => norm(f.name))
+  );
   const resolvedSet = new Set(resolutions.map((r) => norm(r.name)));
 
   function resolve(name: string, verdict: string) {
@@ -954,6 +968,27 @@ function Lookup() {
 
   // Final-verdict lookup for the "Evaluation completed" chips (resolved players).
   const resolvedVerdict = new Map(resolutions.map((r) => [norm(r.name), r.verdict]));
+
+  // "Not enough data" — pending players nobody could judge, emailed to attend
+  // more classes. Drop any who have since been evaluated: they graduate back to
+  // Evaluation completed on their own.
+  const nodataList = followups
+    .filter((f) => f.stage === "nodata" && !inGoodToGo.has(norm(f.name)))
+    .map((f) => f.name);
+  const nodataSet = new Set(nodataList.map(norm));
+
+  // Still-pending players (no final call yet) — the pool the manager can park.
+  // Players in disagreement are excluded: coaches had plenty to go on there, it
+  // just needs a final verdict.
+  const disagreeSet = new Set(disagreements.map(norm));
+  const stillPending = pendingSeed
+    .filter((p) => p.category !== "computer")
+    .map((p) => p.name)
+    .filter(
+      (n) =>
+        !inGoodToGo.has(norm(n)) && !nodataSet.has(norm(n)) && !disagreeSet.has(norm(n))
+    )
+    .sort((a, b) => a.localeCompare(b));
 
   // Players still awaiting follow-up (not yet moved into an emailed/done box).
   const goodToGoOpen = goodToGo.filter((n) => !followupSet.has(norm(n)));
@@ -1113,6 +1148,55 @@ function Lookup() {
                 </span>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {(nodataList.length > 0 || stillPending.length > 0) && (
+        <div className="nodata-box">
+          <h3>📭 Not enough data — emailed to attend more classes ({nodataList.length})</h3>
+          <p className="hint">
+            Pending players nobody has seen enough of to make a call. Parking a name
+            here takes it off the pending lists in Log an entry until they&apos;ve
+            played more; hit ↩ to put them back.
+          </p>
+          {nodataList.length > 0 && (
+            <div className="pending-chips">
+              {nodataList.map((p) => (
+                <span key={p} className="chip nodata-chip">
+                  <button type="button" className="done-name" onClick={() => setName(p)}>
+                    {p}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-undo"
+                    title={`Move ${p} back to pending`}
+                    aria-label={`Move ${p} back to pending`}
+                    onClick={() => clearFollowup(p).then(setFollowups)}
+                  >
+                    ↩
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {stillPending.length > 0 && (
+            <select
+              className="nodata-add"
+              value=""
+              aria-label="Mark a pending player as not enough data"
+              onChange={(e) => {
+                const picked = e.target.value;
+                if (picked) setFollowup(picked, "nodata").then(setFollowups);
+              }}
+            >
+              <option value="">+ Mark a pending player…</option>
+              {stillPending.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       )}
