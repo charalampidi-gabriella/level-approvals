@@ -992,8 +992,14 @@ function Lookup() {
 
   // Players still awaiting follow-up (not yet moved into an emailed/done box).
   const goodToGoOpen = goodToGo.filter((n) => !followupSet.has(norm(n)));
+  // Parked players are draggable into the two follow-up boxes, so those boxes
+  // have to be on screen whenever there's a parked name — even with nothing
+  // else in play — or there'd be nowhere to drop them.
   const hasFollowupContext =
-    goodToGoOpen.length > 0 || emailedList.length > 0 || doneList.length > 0;
+    goodToGoOpen.length > 0 ||
+    emailedList.length > 0 ||
+    doneList.length > 0 ||
+    nodataList.length > 0;
 
   // Filter the already-loaded feed in place — no server round-trip.
   const q = name.trim().toLowerCase();
@@ -1158,12 +1164,18 @@ function Lookup() {
           <p className="hint">
             Pending players nobody has seen enough of to make a call. Parking a name
             here takes it off the pending lists in Log an entry until they&apos;ve
-            played more; hit ↩ to put them back.
+            played more; hit ↩ to put them back. Once one has been dealt with you can
+            also <strong>drag them straight up</strong> into a follow-up box.
           </p>
           {nodataList.length > 0 && (
             <div className="pending-chips">
               {nodataList.map((p) => (
-                <span key={p} className="chip nodata-chip">
+                <span
+                  key={p}
+                  className="chip nodata-chip draggable"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", p)}
+                >
                   <button type="button" className="done-name" onClick={() => setName(p)}>
                     {p}
                   </button>
