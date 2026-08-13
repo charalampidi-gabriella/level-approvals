@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Level Log SOP · Rippner Tennis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --green: #95d600;
+    --green-tint: #f6fbe6;
+    --green-ink: #4a6b00;
+    --navy: #1b4458;
+    --navy-soft: #2a5e75;
+    --blue: #2596b5;
+    --blue-tint: #e6f3f7;
+    --platinum: #f1f5f5;
+    --border: #d6e0e3;
+    --muted: #5e7681;
+    --danger: #c0392b;
+    --danger-tint: #fdecea;
+    --warn: #f4b400;
+    --warn-tint: #fff8e6;
+    --radius: 0.5rem;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background: var(--platinum);
+    color: var(--navy);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  .page {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 3rem;
+  }
+
+  header.hero {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 4px solid var(--green);
+  }
+  header.hero img { height: 64px; width: auto; }
+  header.hero .title h1 {
+    margin: 0;
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--navy);
+    line-height: 1.1;
+  }
+  header.hero .title h1 .accent { color: var(--green); }
+  header.hero .title p {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+
+  .principles {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--green);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .principles h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--navy-soft);
+    font-weight: 700;
+  }
+  .principles ul { margin: 0; padding-left: 1.2rem; }
+  .principles li { margin: 0.35rem 0; }
+  .principles strong { color: var(--navy); }
+
+  /* ===== Tree ===== */
+  .tree {
+    margin: 2rem 0 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .tree-root {
+    background: var(--navy);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 1rem 1.5rem;
+    text-align: center;
+    min-width: 280px;
+    box-shadow: 0 2px 6px rgba(27, 68, 88, 0.15);
+  }
+  .tree-root .root-label {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #95d600;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .tree-root strong {
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+  .tree-root .hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.75);
+    font-weight: 400;
+  }
+
+  .tree-fork {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    height: 50px;
+    margin: 0 auto;
+  }
+  .tree-fork::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 22px;
+    background: var(--navy);
+    transform: translateX(-50%);
+  }
+  .tree-fork::after {
+    content: "";
+    position: absolute;
+    top: 22px;
+    left: 15%;
+    right: 15%;
+    height: 2px;
+    background: var(--navy);
+  }
+  .tree-fork .drop {
+    position: absolute;
+    top: 22px;
+    width: 2px;
+    height: 28px;
+    background: var(--navy);
+  }
+  .tree-fork .drop.left { left: 15%; }
+  .tree-fork .drop.right { right: 15%; transform: translateX(2px); }
+
+  .branches {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    width: 100%;
+  }
+
+  .branch {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .branch.a { border-top: 6px solid var(--green); }
+  .branch.b { border-top: 6px solid var(--blue); }
+
+  .branch-header {
+    padding: 1rem 1.25rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .branch.a .branch-header { background: var(--green-tint); }
+  .branch.b .branch-header { background: var(--blue-tint); }
+  .branch-header .tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--navy);
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border);
+  }
+  .branch.a .branch-header .tag { border-color: var(--green); color: var(--green-ink); }
+  .branch.b .branch-header .tag { border-color: var(--blue); color: var(--navy); }
+  .branch-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--navy);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .branch-header p {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .branch-steps {
+    list-style: none;
+    margin: 0;
+    padding: 1rem 1.25rem 1.25rem;
+    counter-reset: step;
+  }
+  .branch-step {
+    position: relative;
+    padding: 0.85rem 0 0.85rem 2.5rem;
+    border-bottom: 1px dashed var(--border);
+    counter-increment: step;
+  }
+  .branch-step:last-child { border-bottom: none; padding-bottom: 0.25rem; }
+  .branch-step::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    background: var(--platinum);
+    color: var(--navy);
+    font-weight: 800;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+  }
+  .branch-step.coach::before {
+    background: var(--blue-tint);
+    border-color: var(--blue);
+  }
+  .branch-step.manager::before {
+    background: var(--green-tint);
+    border-color: var(--green);
+  }
+  .branch-step .step-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .branch-step .step-head strong {
+    color: var(--navy);
+    font-size: 1rem;
+  }
+  .branch-step p { margin: 0.3rem 0; }
+  .branch-step ul { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+  .branch-step li { margin: 0.2rem 0; }
+  .branch-step strong { color: var(--navy); }
+
+  .role {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+  .role.coach { background: var(--blue-tint); color: var(--navy); border: 1px solid var(--blue); }
+  .role.manager { background: var(--green-tint); color: var(--green-ink); border: 1px solid var(--green); }
+
+  /* Decision branches inside a step — flat, label-on-top, single left accent */
+  .decision {
+    margin: 0.5rem 0 0;
+  }
+  .decision-q {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 0.5rem 0 0.4rem;
+  }
+  .arm {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: var(--radius);
+    padding: 0.7rem 0.9rem 0.8rem;
+    margin: 0.55rem 0;
+    font-size: 0.92rem;
+  }
+  .arm .arm-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: var(--navy);
+    margin: 0 0 0.4rem;
+  }
+  .arm.good { border-left-color: var(--green); }
+  .arm.good .arm-label { color: var(--green-ink); }
+  .arm.warn { border-left-color: var(--warn); }
+  .arm.warn .arm-label { color: #7a5500; }
+  .arm.danger { border-left-color: var(--danger); }
+  .arm.danger .arm-label { color: var(--danger); }
+  .arm.neutral { border-left-color: var(--blue); }
+  .arm.neutral .arm-label { color: var(--blue); }
+  .arm ul { margin: 0.3rem 0 0; padding-left: 1.15rem; }
+  .arm em {
+    display: block;
+    margin-top: 0.55rem;
+    padding: 0.55rem 0.8rem;
+    background: var(--platinum);
+    border-left: 3px solid var(--navy-soft);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--navy);
+    font-style: italic;
+  }
+
+  .callout {
+    margin: 0.6rem 0 0;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius);
+    border-left: 4px solid var(--warn);
+    background: var(--warn-tint);
+    font-size: 0.88rem;
+  }
+  .callout strong { color: var(--navy); }
+
+  /* Marked for discussion — yellow highlight + label */
+  .discuss {
+    background: #fff8c5;
+    border-left: 4px solid #f4b400;
+    border-radius: var(--radius);
+    padding: 0.5rem 0.85rem 0.6rem;
+    margin: 0.5rem 0;
+  }
+  .discuss::before {
+    content: "✎ Discuss with Brie";
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #806000;
+    margin-bottom: 0.35rem;
+  }
+  .discuss > p:first-of-type { margin-top: 0.2rem; }
+  .discuss > *:last-child { margin-bottom: 0; }
+  .discuss > .arm { margin: 0; }
+
+  /* ===== Bottom section ===== */
+  section.block { margin: 2.5rem 0; }
+  section.block > h2.section-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--navy);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.15rem;
+  }
+  .card strong { color: var(--navy); }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  footer .slogan {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    color: var(--navy);
+    font-size: 0.78rem;
+  }
+  footer .contact a { color: var(--blue); text-decoration: none; }
+
+  @media (max-width: 800px) {
+    .page { padding: 1.5rem 1rem 2rem; }
+    header.hero { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    header.hero img { height: 48px; }
+    header.hero .title h1 { font-size: 1.75rem; }
+    .branches { grid-template-columns: 1fr; }
+    .tree-fork { display: none; }
+    .branch { margin-top: 1rem; position: relative; }
+    .branch::before {
+      content: "";
+      position: absolute;
+      top: -1rem;
+      left: 50%;
+      width: 2px;
+      height: 1rem;
+      background: var(--navy);
+      transform: translateX(-50%);
+    }
+  }
+
+  @media print {
+    html, body { background: #fff; }
+    .page { padding: 0.4in 0.5in; max-width: none; }
+    header.hero { page-break-after: avoid; }
+    .branch, .card, .principles { page-break-inside: avoid; }
+    a { color: var(--navy); text-decoration: none; }
+    * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <img src="/media/rippner-logo.png" alt="Rippner Tennis" />
+      <div class="title">
+        <h1>Level Log <span class="accent">SOP</span></h1>
+        <p>Standard Operating Procedure</p>
+      </div>
+    </header>
+
+    <div class="principles">
+      <h2>Two principles underpin everything below</h2>
+      <ul>
+        <li><strong>Coaches observe; the manager speaks.</strong> Coaches do not deliver approval, denial, or refund decisions to the player on court. They send the call to the manager, who logs it and contacts the player. One voice avoids on-court promises that contradict the shared record.</li>
+        <li><strong>The app never blocks.</strong> Entries always save. Conflicting decisions are reconciled by talking to the coaches first — not by overwriting the record afterward.</li>
+      </ul>
+    </div>
+
+    <div class="tree">
+      <div class="tree-root">
+        <span class="root-label">Player on court</span>
+        <strong>Which scenario are you in?</strong>
+        <span class="hint">Everything that comes through this app fits one of the two branches below.</span>
+      </div>
+
+      <div class="tree-fork" aria-hidden="true">
+        <span class="drop left"></span>
+        <span class="drop right"></span>
+      </div>
+
+      <div class="branches">
+
+        <!-- ===== Branch A — Approval ===== -->
+        <div class="branch a">
+          <div class="branch-header">
+            <span class="tag">Scenario A</span>
+            <h3>Player seeks 4.0+ approval</h3>
+            <p>Triggered by a player request — usually a pre-class email, or an existing clinic player asking to be approved for a higher level.</p>
+          </div>
+          <ol class="branch-steps">
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Receive the request and flag the coach in advance</strong>
+              </div>
+              <p>Requests typically arrive one of two ways:</p>
+              <ul>
+                <li>
+                  <strong>Pre-class email</strong> from the player asking to be approved for 4.0–4.5 or 4.5.
+                  <ul>
+                    <li>Before the class, post in the <strong>coaches' chat</strong>: player name, level being evaluated, date and time — so the assigned coach knows who to watch for.</li>
+                  </ul>
+                </li>
+                <li><strong>Existing clinic player</strong> asking a coach or the front desk to be moved up.</li>
+              </ul>
+            </li>
+
+            <li class="branch-step coach">
+              <div class="step-head">
+                <strong>Observe the flagged player through the class</strong>
+                <span class="role coach">Coach</span>
+              </div>
+            </li>
+
+            <li class="branch-step coach">
+              <div class="step-head">
+                <strong>Form the call silently — do not tell the player</strong>
+                <span class="role coach">Coach</span>
+              </div>
+              <div class="discuss">
+                <p>Reach a conclusion in your head: approval or denial. <strong>Do not deliver the verdict on court.</strong></p>
+                <ul>
+                  <li>If asked how they did: <em>"I'll send my notes to the manager and they'll be in touch."</em></li>
+                  <li>Don't promise an approval or hint at one.</li>
+                  <li>Don't deliver denial feedback face-to-face — the manager sends it in the follow-up email so wording is consistent and on record.</li>
+                </ul>
+              </div>
+            </li>
+
+            <li class="branch-step coach">
+              <div class="step-head">
+                <strong>Report the decision to the manager — same day</strong>
+                <span class="role coach">Coach</span>
+              </div>
+              <p>Coaches' chat (preferred), in person, or email. Include:</p>
+              <ul>
+                <li><strong>Player name</strong> (roster spelling).</li>
+                <li><strong>Outcome</strong> — Approved or Denied.</li>
+                <li><strong>Level(s)</strong> — including the <strong>4.5 verdict</strong> if the call is "Approved for 4.0–4.5".</li>
+                <li><strong>Feedback</strong> (required for denials) — concrete: strokes, movement, match play.</li>
+              </ul>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Look up the player first</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <p>Open the <strong>Look up player</strong> tab. Check approval status per gated level (Approved / Denied / Disagreement) and the full history.</p>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Reconcile conflicts before logging</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <p>If the new call contradicts what's on record, raise it in the coaches' chat and get alignment first. The app will save a contradiction without complaint — surface it before logging.</p>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Log the entry (Log entry tab)</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <ul>
+                <li>Pick the <strong>coach who made the call</strong>, the player, and the entry type.</li>
+                <li><strong>Approving for 4.0–4.5 also requires a 4.5 verdict.</strong> The app enforces this.</li>
+                <li>Paste the coach's feedback for denials.</li>
+              </ul>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Email the player</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <div class="decision">
+                <div class="decision-q">Outcome?</div>
+                <div class="arm good">
+                  <span class="arm-label">Approved</span>
+                  Email the player. <strong>"You can join 4.5 now"</strong> or <strong>"stay in 4.0–4.5 for now"</strong> based on the 4.5 verdict, with registration instructions.
+                </div>
+                <div class="discuss">
+                  <div class="arm danger">
+                    <span class="arm-label">Denied</span>
+                    Email the player with the coach's feedback — concrete enough that they know what to work on and what's next. Don't leave them without word; the coach was silent on court by design.
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- ===== Branch B — Wrong Level ===== -->
+        <div class="branch b">
+          <div class="branch-header">
+            <span class="tag">Scenario B</span>
+            <h3>Player showed up at the wrong level</h3>
+            <p>Mismatch noticed during warm-up or early drills.</p>
+          </div>
+          <ol class="branch-steps">
+
+            <li class="branch-step coach">
+              <div class="step-head">
+                <strong>Act on court — pick the path that fits</strong>
+                <span class="role coach">Coach</span>
+              </div>
+              <p>You have roughly the <strong>first 15–20 minutes</strong> to decide. Past that, the disruption is locked in.</p>
+              <div class="decision">
+                <div class="arm good">
+                  <span class="arm-label">Gap &lt; 1.0</span>
+                  Finish the class as planned. Report to the manager later — no on-court action needed.
+                </div>
+                <div class="arm neutral">
+                  <span class="arm-label">Gap ≥ 1.0 · Suitable class available</span>
+                  Check the court sheet (same time or within the next few hours), kindly redirect the player to that court, and notify the front desk to update attendance.
+                </div>
+                <div class="arm warn">
+                  <span class="arm-label">Gap ≥ 1.0 · No suitable class</span>
+                  Use the neutral script below. <strong>Do not promise a refund</strong> or quote eligibility — refunds are the manager's call.
+                  <em>"I want to make sure you have the best experience. This group isn't the right level today. Our manager will be in touch by email — please email <strong>manager@rippnertennis.com</strong> if you'd like to follow up directly."</em>
+                </div>
+              </div>
+            </li>
+
+            <li class="branch-step coach">
+              <div class="step-head">
+                <strong>Report to the manager — same day</strong>
+                <span class="role coach">Coach</span>
+              </div>
+              <ul>
+                <li><strong>Player name</strong> (roster spelling).</li>
+                <li><strong>Level they attended</strong> and <strong>level they should be in</strong>.</li>
+                <li><strong>Feedback</strong> — which class they showed up to, what tipped you off.</li>
+                <li>Whether you were able to <strong>redirect</strong> them on court or not.</li>
+              </ul>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Look up the player — first or repeat?</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <p>Open the <strong>Look up player</strong> tab. The wrong-class history drives everything that follows — confirm first vs. repeat occurrence before acting.</p>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Log the entry</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <ul>
+                <li>Pick the <strong>coach who made the call</strong>, the player, and "Showed up at wrong class".</li>
+                <li>Pick <strong>level attended</strong> and <strong>level they should be in</strong>.</li>
+                <li>Paste the coach's feedback (required).</li>
+              </ul>
+            </li>
+
+            <li class="branch-step manager">
+              <div class="step-head">
+                <strong>Player follow-up</strong>
+                <span class="role manager">Manager</span>
+              </div>
+              <div class="decision">
+                <div class="decision-q">First or repeat occurrence?</div>
+                <div class="arm good">
+                  <span class="arm-label">First occurrence</span>
+                  <ul>
+                    <li>Add a note to the player's profile (external system of record) documenting the level concern.</li>
+                    <li>Follow-up email to the player <strong>within 24 hours</strong>.</li>
+                    <li>Review refund eligibility — a credit is issued <strong>only if</strong> the player has never been flagged before <strong>and</strong> has never received an exception.</li>
+                  </ul>
+                </div>
+                <div class="arm danger">
+                  <span class="arm-label">Second occurrence</span>
+                  <ul>
+                    <li>Add a profile note, <strong>clearly flagging the repeat occurrence</strong>.</li>
+                    <li><strong>Escalate to senior management for approval</strong> before:
+                      <ul>
+                        <li>Removing the <strong>"Guest Group"</strong> permission, or</li>
+                        <li>Sending any formal <strong>Code of Conduct</strong> email.</li>
+                      </ul>
+                    </li>
+                    <li>Follow-up email to the player <strong>within 24 hours</strong>.</li>
+                  </ul>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+      </div>
+    </div>
+
+    <section class="block">
+      <h2 class="section-title">Where notes live</h2>
+      <div class="card">
+        <p style="margin:0">The app is the <strong>alert and shared decision history</strong> — it is append-only and has no in-app editing. Ongoing player notes (profile notes, refund decisions, permission changes) are maintained in the <strong>external system of record</strong>. The app tells you <em>what happened and whether it has happened before</em>; the external system holds the resolution.</p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="slogan">Health · Community · Competition</div>
+      <div class="contact">
+        <a href="mailto:manager@rippnertennis.com">manager@rippnertennis.com</a> · 512-222-7260
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
